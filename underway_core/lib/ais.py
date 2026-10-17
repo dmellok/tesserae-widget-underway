@@ -43,6 +43,13 @@ def _sibling(name: str) -> Any:
 N = _sibling("net")
 WS = _sibling("ws")
 
+try:
+    from app import (
+        commons,
+    )  # Tesserae 0.465+: the host looks pictures up on Commons for every widget
+except ImportError:  # an older Tesserae: the copy below
+    commons = None  # type: ignore[assignment]
+
 AISSTREAM = "wss://stream.aisstream.io/v0/stream"
 COMMONS = "https://commons.wikimedia.org/w/api.php"
 OPEN_METEO = "https://api.open-meteo.com/v1/forecast?latitude={lat:.3f}&longitude={lon:.3f}&current=weather_code,cloud_cover,is_day,wind_speed_10m&daily=sunrise,sunset&timezone=auto&forecast_days=1"
@@ -53,7 +60,9 @@ PHOTO_S = 30 * 86400
 WEATHER_S = 15 * 60
 LISTEN_IDLE_S = 20 * 60  # a listener no page has asked for stops after this
 LISTEN_SAVE_S = 10
-LISTEN_WARM_S = 25  # a fresh listener is given this long before an empty sea counts as empty
+LISTEN_WARM_S = (
+    25  # a fresh listener is given this long before an empty sea counts as empty
+)
 KM_NM = 1.852
 
 
@@ -65,7 +74,18 @@ def user_agent(contact: str) -> str:
 # ----------------------------------------------------------------------
 # Ship types: the AIS type code to a label and a class for the silhouette
 # ----------------------------------------------------------------------
-CLASSES = ("cargo", "tanker", "passenger", "tug", "fishing", "sail", "pleasure", "service", "naval", "other")
+CLASSES = (
+    "cargo",
+    "tanker",
+    "passenger",
+    "tug",
+    "fishing",
+    "sail",
+    "pleasure",
+    "service",
+    "naval",
+    "other",
+)
 CLASS_ABOUT = {
     "cargo": "a cargo ship",
     "tanker": "a tanker",
@@ -78,19 +98,51 @@ CLASS_ABOUT = {
     "naval": "a naval vessel",
     "other": "a vessel",
 }
-CLASS_LEN = {"cargo": 180.0, "tanker": 200.0, "passenger": 200.0, "tug": 30.0, "fishing": 25.0, "sail": 15.0, "pleasure": 12.0, "service": 25.0, "naval": 100.0, "other": 40.0}
+CLASS_LEN = {
+    "cargo": 180.0,
+    "tanker": 200.0,
+    "passenger": 200.0,
+    "tug": 30.0,
+    "fishing": 25.0,
+    "sail": 15.0,
+    "pleasure": 12.0,
+    "service": 25.0,
+    "naval": 100.0,
+    "other": 40.0,
+}
 _TYPES: dict[int, tuple[str, str]] = {
-    30: ("Fishing vessel", "fishing"), 31: ("Towing vessel", "tug"), 32: ("Towing vessel", "tug"), 33: ("Dredger", "service"),
-    34: ("Diving support vessel", "service"), 35: ("Military vessel", "naval"), 36: ("Sailing vessel", "sail"), 37: ("Pleasure craft", "pleasure"),
-    50: ("Pilot vessel", "service"), 51: ("Search and rescue vessel", "service"), 52: ("Tug", "tug"), 53: ("Port tender", "service"),
-    54: ("Anti-pollution vessel", "service"), 55: ("Law enforcement vessel", "service"), 56: ("Spare vessel", "service"), 57: ("Spare vessel", "service"),
-    58: ("Medical transport", "service"), 59: ("Non-combatant ship", "naval"),
+    30: ("Fishing vessel", "fishing"),
+    31: ("Towing vessel", "tug"),
+    32: ("Towing vessel", "tug"),
+    33: ("Dredger", "service"),
+    34: ("Diving support vessel", "service"),
+    35: ("Military vessel", "naval"),
+    36: ("Sailing vessel", "sail"),
+    37: ("Pleasure craft", "pleasure"),
+    50: ("Pilot vessel", "service"),
+    51: ("Search and rescue vessel", "service"),
+    52: ("Tug", "tug"),
+    53: ("Port tender", "service"),
+    54: ("Anti-pollution vessel", "service"),
+    55: ("Law enforcement vessel", "service"),
+    56: ("Spare vessel", "service"),
+    57: ("Spare vessel", "service"),
+    58: ("Medical transport", "service"),
+    59: ("Non-combatant ship", "naval"),
 }
 _RANGES = (
-    (20, 29, "Wing-in-ground craft", "other"), (40, 49, "High-speed craft", "passenger"), (60, 69, "Passenger ship", "passenger"),
-    (70, 79, "Cargo ship", "cargo"), (80, 89, "Tanker", "tanker"), (90, 99, "Vessel", "other"),
+    (20, 29, "Wing-in-ground craft", "other"),
+    (40, 49, "High-speed craft", "passenger"),
+    (60, 69, "Passenger ship", "passenger"),
+    (70, 79, "Cargo ship", "cargo"),
+    (80, 89, "Tanker", "tanker"),
+    (90, 99, "Vessel", "other"),
 )
-HAZARD = {1: " carrying hazardous cargo", 2: " carrying hazardous cargo", 3: " carrying hazardous cargo"}
+HAZARD = {
+    1: " carrying hazardous cargo",
+    2: " carrying hazardous cargo",
+    3: " carrying hazardous cargo",
+}
 
 
 def type_of(code: Any) -> tuple[str, str, int]:
@@ -108,8 +160,18 @@ def type_of(code: Any) -> tuple[str, str, int]:
 
 
 STATUS = {
-    0: "under way using engine", 1: "at anchor", 2: "not under command", 3: "restricted in manoeuvrability", 4: "constrained by her draught",
-    5: "moored", 6: "aground", 7: "engaged in fishing", 8: "under way sailing", 11: "towing astern", 12: "pushing ahead", 14: "AIS-SART",
+    0: "under way using engine",
+    1: "at anchor",
+    2: "not under command",
+    3: "restricted in manoeuvrability",
+    4: "constrained by her draught",
+    5: "moored",
+    6: "aground",
+    7: "engaged in fishing",
+    8: "under way sailing",
+    11: "towing astern",
+    12: "pushing ahead",
+    14: "AIS-SART",
 }
 MOVING = {0, 7, 8, 11, 12}
 
@@ -122,7 +184,9 @@ def status_of(code: Any, sog: float) -> tuple[str, bool]:
         n = 15
     if n in STATUS:
         # moored, anchored or aground is still whatever the speed says; otherwise the speed decides
-        return STATUS[n], n not in (1, 5, 6) and (sog >= 0.5 or (sog < 0 and n in MOVING))
+        return STATUS[n], n not in (1, 5, 6) and (
+            sog >= 0.5 or (sog < 0 and n in MOVING)
+        )
     return ("under way" if sog >= 0.5 else "stopped"), sog >= 0.5
 
 
@@ -131,57 +195,335 @@ def status_of(code: Any, sog: float) -> tuple[str, bool]:
 # codes a receiver gives. Enough for what passes most coasts.
 # ----------------------------------------------------------------------
 MID: dict[int, tuple[str, str]] = {
-    201: ("AL", "Albania"), 202: ("AD", "Andorra"), 203: ("AT", "Austria"), 204: ("PT", "Portugal"), 205: ("BE", "Belgium"), 206: ("BY", "Belarus"), 207: ("BG", "Bulgaria"),
-    208: ("VA", "Vatican"), 209: ("CY", "Cyprus"), 210: ("CY", "Cyprus"), 211: ("DE", "Germany"), 212: ("CY", "Cyprus"), 213: ("GE", "Georgia"), 214: ("MD", "Moldova"),
-    215: ("MT", "Malta"), 216: ("AM", "Armenia"), 218: ("DE", "Germany"), 219: ("DK", "Denmark"), 220: ("DK", "Denmark"), 224: ("ES", "Spain"), 225: ("ES", "Spain"),
-    226: ("FR", "France"), 227: ("FR", "France"), 228: ("FR", "France"), 229: ("MT", "Malta"), 230: ("FI", "Finland"), 231: ("FO", "Faroe Islands"), 232: ("GB", "United Kingdom"),
-    233: ("GB", "United Kingdom"), 234: ("GB", "United Kingdom"), 235: ("GB", "United Kingdom"), 236: ("GI", "Gibraltar"), 237: ("GR", "Greece"), 238: ("HR", "Croatia"),
-    239: ("GR", "Greece"), 240: ("GR", "Greece"), 241: ("GR", "Greece"), 242: ("MA", "Morocco"), 243: ("HU", "Hungary"), 244: ("NL", "Netherlands"), 245: ("NL", "Netherlands"),
-    246: ("NL", "Netherlands"), 247: ("IT", "Italy"), 248: ("MT", "Malta"), 249: ("MT", "Malta"), 250: ("IE", "Ireland"), 251: ("IS", "Iceland"), 252: ("LI", "Liechtenstein"),
-    253: ("LU", "Luxembourg"), 254: ("MC", "Monaco"), 255: ("PT", "Madeira"), 256: ("MT", "Malta"), 257: ("NO", "Norway"), 258: ("NO", "Norway"), 259: ("NO", "Norway"),
-    261: ("PL", "Poland"), 262: ("ME", "Montenegro"), 263: ("PT", "Portugal"), 264: ("RO", "Romania"), 265: ("SE", "Sweden"), 266: ("SE", "Sweden"), 267: ("SK", "Slovakia"),
-    268: ("SM", "San Marino"), 269: ("CH", "Switzerland"), 270: ("CZ", "Czechia"), 271: ("TR", "Türkiye"), 272: ("UA", "Ukraine"), 273: ("RU", "Russia"), 274: ("MK", "North Macedonia"),
-    275: ("LV", "Latvia"), 276: ("EE", "Estonia"), 277: ("LT", "Lithuania"), 278: ("SI", "Slovenia"), 279: ("RS", "Serbia"),
-    301: ("AI", "Anguilla"), 303: ("US", "Alaska"), 304: ("AG", "Antigua and Barbuda"), 305: ("AG", "Antigua and Barbuda"), 306: ("CW", "Curaçao"), 307: ("AW", "Aruba"),
-    308: ("BS", "Bahamas"), 309: ("BS", "Bahamas"), 310: ("BM", "Bermuda"), 311: ("BS", "Bahamas"), 312: ("BZ", "Belize"), 314: ("BB", "Barbados"), 316: ("CA", "Canada"),
-    319: ("KY", "Cayman Islands"), 321: ("CR", "Costa Rica"), 323: ("CU", "Cuba"), 325: ("DM", "Dominica"), 327: ("DO", "Dominican Republic"), 329: ("GP", "Guadeloupe"),
-    330: ("GD", "Grenada"), 331: ("GL", "Greenland"), 332: ("GT", "Guatemala"), 334: ("HN", "Honduras"), 336: ("HT", "Haiti"), 338: ("US", "United States"), 339: ("JM", "Jamaica"),
-    341: ("KN", "Saint Kitts and Nevis"), 343: ("LC", "Saint Lucia"), 345: ("MX", "Mexico"), 347: ("MQ", "Martinique"), 348: ("MS", "Montserrat"), 350: ("NI", "Nicaragua"),
-    351: ("PA", "Panama"), 352: ("PA", "Panama"), 353: ("PA", "Panama"), 354: ("PA", "Panama"), 355: ("PA", "Panama"), 356: ("PA", "Panama"), 357: ("PA", "Panama"),
-    358: ("PR", "Puerto Rico"), 359: ("SV", "El Salvador"), 361: ("PM", "Saint Pierre and Miquelon"), 362: ("TT", "Trinidad and Tobago"), 364: ("TC", "Turks and Caicos"),
-    366: ("US", "United States"), 367: ("US", "United States"), 368: ("US", "United States"), 369: ("US", "United States"), 370: ("PA", "Panama"), 371: ("PA", "Panama"),
-    372: ("PA", "Panama"), 373: ("PA", "Panama"), 374: ("PA", "Panama"), 375: ("VC", "Saint Vincent"), 376: ("VC", "Saint Vincent"), 377: ("VC", "Saint Vincent"),
-    378: ("VG", "British Virgin Islands"), 379: ("VI", "US Virgin Islands"),
-    401: ("AF", "Afghanistan"), 403: ("SA", "Saudi Arabia"), 405: ("BD", "Bangladesh"), 408: ("BH", "Bahrain"), 410: ("BT", "Bhutan"), 412: ("CN", "China"), 413: ("CN", "China"),
-    414: ("CN", "China"), 416: ("TW", "Taiwan"), 417: ("LK", "Sri Lanka"), 419: ("IN", "India"), 422: ("IR", "Iran"), 423: ("AZ", "Azerbaijan"), 425: ("IQ", "Iraq"),
-    428: ("IL", "Israel"), 431: ("JP", "Japan"), 432: ("JP", "Japan"), 434: ("TM", "Turkmenistan"), 436: ("KZ", "Kazakhstan"), 437: ("UZ", "Uzbekistan"), 438: ("JO", "Jordan"),
-    440: ("KR", "South Korea"), 441: ("KR", "South Korea"), 443: ("PS", "Palestine"), 445: ("KP", "North Korea"), 447: ("KW", "Kuwait"), 450: ("LB", "Lebanon"), 451: ("KG", "Kyrgyzstan"),
-    453: ("MO", "Macao"), 455: ("MV", "Maldives"), 457: ("MN", "Mongolia"), 459: ("NP", "Nepal"), 461: ("OM", "Oman"), 463: ("PK", "Pakistan"), 466: ("QA", "Qatar"),
-    468: ("SY", "Syria"), 470: ("AE", "United Arab Emirates"), 471: ("AE", "United Arab Emirates"), 472: ("TJ", "Tajikistan"), 473: ("YE", "Yemen"), 475: ("YE", "Yemen"),
-    477: ("HK", "Hong Kong"), 478: ("BA", "Bosnia and Herzegovina"),
-    501: ("AQ", "Antarctica"), 503: ("AU", "Australia"), 506: ("MM", "Myanmar"), 508: ("BN", "Brunei"), 510: ("FM", "Micronesia"), 511: ("PW", "Palau"), 512: ("NZ", "New Zealand"),
-    514: ("KH", "Cambodia"), 515: ("KH", "Cambodia"), 516: ("CX", "Christmas Island"), 518: ("CK", "Cook Islands"), 520: ("FJ", "Fiji"), 523: ("CC", "Cocos Islands"),
-    525: ("ID", "Indonesia"), 529: ("KI", "Kiribati"), 531: ("LA", "Laos"), 533: ("MY", "Malaysia"), 536: ("MP", "Northern Mariana Islands"), 538: ("MH", "Marshall Islands"),
-    540: ("NC", "New Caledonia"), 542: ("NU", "Niue"), 544: ("NR", "Nauru"), 546: ("PF", "French Polynesia"), 548: ("PH", "Philippines"), 550: ("TL", "Timor-Leste"),
-    553: ("PG", "Papua New Guinea"), 555: ("PN", "Pitcairn"), 557: ("SB", "Solomon Islands"), 559: ("AS", "American Samoa"), 561: ("WS", "Samoa"), 563: ("SG", "Singapore"),
-    564: ("SG", "Singapore"), 565: ("SG", "Singapore"), 566: ("SG", "Singapore"), 567: ("TH", "Thailand"), 570: ("TO", "Tonga"), 572: ("TV", "Tuvalu"), 574: ("VN", "Vietnam"),
-    576: ("VU", "Vanuatu"), 577: ("VU", "Vanuatu"), 578: ("WF", "Wallis and Futuna"),
-    601: ("ZA", "South Africa"), 603: ("AO", "Angola"), 605: ("DZ", "Algeria"), 607: ("TF", "French Southern Territories"), 608: ("IO", "Ascension"), 609: ("BI", "Burundi"),
-    610: ("BJ", "Benin"), 611: ("BW", "Botswana"), 612: ("CF", "Central African Republic"), 613: ("CM", "Cameroon"), 615: ("CG", "Congo"), 616: ("KM", "Comoros"), 617: ("CV", "Cabo Verde"),
-    618: ("AQ", "Crozet"), 619: ("CI", "Côte d'Ivoire"), 620: ("KM", "Comoros"), 621: ("DJ", "Djibouti"), 622: ("EG", "Egypt"), 624: ("ET", "Ethiopia"), 625: ("ER", "Eritrea"),
-    626: ("GA", "Gabon"), 627: ("GH", "Ghana"), 629: ("GM", "Gambia"), 630: ("GW", "Guinea-Bissau"), 631: ("GQ", "Equatorial Guinea"), 632: ("GN", "Guinea"), 633: ("BF", "Burkina Faso"),
-    634: ("KE", "Kenya"), 635: ("AQ", "Kerguelen"), 636: ("LR", "Liberia"), 637: ("LR", "Liberia"), 638: ("SS", "South Sudan"), 642: ("LY", "Libya"), 644: ("LS", "Lesotho"),
-    645: ("MU", "Mauritius"), 647: ("MG", "Madagascar"), 649: ("ML", "Mali"), 650: ("MZ", "Mozambique"), 654: ("MR", "Mauritania"), 655: ("MW", "Malawi"), 656: ("NE", "Niger"),
-    657: ("NG", "Nigeria"), 659: ("NA", "Namibia"), 660: ("RE", "Réunion"), 661: ("RW", "Rwanda"), 662: ("SD", "Sudan"), 663: ("SN", "Senegal"), 664: ("SC", "Seychelles"),
-    665: ("SH", "Saint Helena"), 666: ("SO", "Somalia"), 667: ("SL", "Sierra Leone"), 668: ("ST", "São Tomé and Príncipe"), 669: ("SZ", "Eswatini"), 670: ("TD", "Chad"),
-    671: ("TG", "Togo"), 672: ("TN", "Tunisia"), 674: ("TZ", "Tanzania"), 675: ("UG", "Uganda"), 676: ("CD", "DR Congo"), 677: ("TZ", "Tanzania"), 678: ("ZM", "Zambia"), 679: ("ZW", "Zimbabwe"),
-    701: ("AR", "Argentina"), 710: ("BR", "Brazil"), 720: ("BO", "Bolivia"), 725: ("CL", "Chile"), 730: ("CO", "Colombia"), 735: ("EC", "Ecuador"), 740: ("FK", "Falkland Islands"),
-    745: ("GF", "French Guiana"), 750: ("GY", "Guyana"), 755: ("PY", "Paraguay"), 760: ("PE", "Peru"), 765: ("SR", "Suriname"), 770: ("UY", "Uruguay"), 775: ("VE", "Venezuela"),
+    201: ("AL", "Albania"),
+    202: ("AD", "Andorra"),
+    203: ("AT", "Austria"),
+    204: ("PT", "Portugal"),
+    205: ("BE", "Belgium"),
+    206: ("BY", "Belarus"),
+    207: ("BG", "Bulgaria"),
+    208: ("VA", "Vatican"),
+    209: ("CY", "Cyprus"),
+    210: ("CY", "Cyprus"),
+    211: ("DE", "Germany"),
+    212: ("CY", "Cyprus"),
+    213: ("GE", "Georgia"),
+    214: ("MD", "Moldova"),
+    215: ("MT", "Malta"),
+    216: ("AM", "Armenia"),
+    218: ("DE", "Germany"),
+    219: ("DK", "Denmark"),
+    220: ("DK", "Denmark"),
+    224: ("ES", "Spain"),
+    225: ("ES", "Spain"),
+    226: ("FR", "France"),
+    227: ("FR", "France"),
+    228: ("FR", "France"),
+    229: ("MT", "Malta"),
+    230: ("FI", "Finland"),
+    231: ("FO", "Faroe Islands"),
+    232: ("GB", "United Kingdom"),
+    233: ("GB", "United Kingdom"),
+    234: ("GB", "United Kingdom"),
+    235: ("GB", "United Kingdom"),
+    236: ("GI", "Gibraltar"),
+    237: ("GR", "Greece"),
+    238: ("HR", "Croatia"),
+    239: ("GR", "Greece"),
+    240: ("GR", "Greece"),
+    241: ("GR", "Greece"),
+    242: ("MA", "Morocco"),
+    243: ("HU", "Hungary"),
+    244: ("NL", "Netherlands"),
+    245: ("NL", "Netherlands"),
+    246: ("NL", "Netherlands"),
+    247: ("IT", "Italy"),
+    248: ("MT", "Malta"),
+    249: ("MT", "Malta"),
+    250: ("IE", "Ireland"),
+    251: ("IS", "Iceland"),
+    252: ("LI", "Liechtenstein"),
+    253: ("LU", "Luxembourg"),
+    254: ("MC", "Monaco"),
+    255: ("PT", "Madeira"),
+    256: ("MT", "Malta"),
+    257: ("NO", "Norway"),
+    258: ("NO", "Norway"),
+    259: ("NO", "Norway"),
+    261: ("PL", "Poland"),
+    262: ("ME", "Montenegro"),
+    263: ("PT", "Portugal"),
+    264: ("RO", "Romania"),
+    265: ("SE", "Sweden"),
+    266: ("SE", "Sweden"),
+    267: ("SK", "Slovakia"),
+    268: ("SM", "San Marino"),
+    269: ("CH", "Switzerland"),
+    270: ("CZ", "Czechia"),
+    271: ("TR", "Türkiye"),
+    272: ("UA", "Ukraine"),
+    273: ("RU", "Russia"),
+    274: ("MK", "North Macedonia"),
+    275: ("LV", "Latvia"),
+    276: ("EE", "Estonia"),
+    277: ("LT", "Lithuania"),
+    278: ("SI", "Slovenia"),
+    279: ("RS", "Serbia"),
+    301: ("AI", "Anguilla"),
+    303: ("US", "Alaska"),
+    304: ("AG", "Antigua and Barbuda"),
+    305: ("AG", "Antigua and Barbuda"),
+    306: ("CW", "Curaçao"),
+    307: ("AW", "Aruba"),
+    308: ("BS", "Bahamas"),
+    309: ("BS", "Bahamas"),
+    310: ("BM", "Bermuda"),
+    311: ("BS", "Bahamas"),
+    312: ("BZ", "Belize"),
+    314: ("BB", "Barbados"),
+    316: ("CA", "Canada"),
+    319: ("KY", "Cayman Islands"),
+    321: ("CR", "Costa Rica"),
+    323: ("CU", "Cuba"),
+    325: ("DM", "Dominica"),
+    327: ("DO", "Dominican Republic"),
+    329: ("GP", "Guadeloupe"),
+    330: ("GD", "Grenada"),
+    331: ("GL", "Greenland"),
+    332: ("GT", "Guatemala"),
+    334: ("HN", "Honduras"),
+    336: ("HT", "Haiti"),
+    338: ("US", "United States"),
+    339: ("JM", "Jamaica"),
+    341: ("KN", "Saint Kitts and Nevis"),
+    343: ("LC", "Saint Lucia"),
+    345: ("MX", "Mexico"),
+    347: ("MQ", "Martinique"),
+    348: ("MS", "Montserrat"),
+    350: ("NI", "Nicaragua"),
+    351: ("PA", "Panama"),
+    352: ("PA", "Panama"),
+    353: ("PA", "Panama"),
+    354: ("PA", "Panama"),
+    355: ("PA", "Panama"),
+    356: ("PA", "Panama"),
+    357: ("PA", "Panama"),
+    358: ("PR", "Puerto Rico"),
+    359: ("SV", "El Salvador"),
+    361: ("PM", "Saint Pierre and Miquelon"),
+    362: ("TT", "Trinidad and Tobago"),
+    364: ("TC", "Turks and Caicos"),
+    366: ("US", "United States"),
+    367: ("US", "United States"),
+    368: ("US", "United States"),
+    369: ("US", "United States"),
+    370: ("PA", "Panama"),
+    371: ("PA", "Panama"),
+    372: ("PA", "Panama"),
+    373: ("PA", "Panama"),
+    374: ("PA", "Panama"),
+    375: ("VC", "Saint Vincent"),
+    376: ("VC", "Saint Vincent"),
+    377: ("VC", "Saint Vincent"),
+    378: ("VG", "British Virgin Islands"),
+    379: ("VI", "US Virgin Islands"),
+    401: ("AF", "Afghanistan"),
+    403: ("SA", "Saudi Arabia"),
+    405: ("BD", "Bangladesh"),
+    408: ("BH", "Bahrain"),
+    410: ("BT", "Bhutan"),
+    412: ("CN", "China"),
+    413: ("CN", "China"),
+    414: ("CN", "China"),
+    416: ("TW", "Taiwan"),
+    417: ("LK", "Sri Lanka"),
+    419: ("IN", "India"),
+    422: ("IR", "Iran"),
+    423: ("AZ", "Azerbaijan"),
+    425: ("IQ", "Iraq"),
+    428: ("IL", "Israel"),
+    431: ("JP", "Japan"),
+    432: ("JP", "Japan"),
+    434: ("TM", "Turkmenistan"),
+    436: ("KZ", "Kazakhstan"),
+    437: ("UZ", "Uzbekistan"),
+    438: ("JO", "Jordan"),
+    440: ("KR", "South Korea"),
+    441: ("KR", "South Korea"),
+    443: ("PS", "Palestine"),
+    445: ("KP", "North Korea"),
+    447: ("KW", "Kuwait"),
+    450: ("LB", "Lebanon"),
+    451: ("KG", "Kyrgyzstan"),
+    453: ("MO", "Macao"),
+    455: ("MV", "Maldives"),
+    457: ("MN", "Mongolia"),
+    459: ("NP", "Nepal"),
+    461: ("OM", "Oman"),
+    463: ("PK", "Pakistan"),
+    466: ("QA", "Qatar"),
+    468: ("SY", "Syria"),
+    470: ("AE", "United Arab Emirates"),
+    471: ("AE", "United Arab Emirates"),
+    472: ("TJ", "Tajikistan"),
+    473: ("YE", "Yemen"),
+    475: ("YE", "Yemen"),
+    477: ("HK", "Hong Kong"),
+    478: ("BA", "Bosnia and Herzegovina"),
+    501: ("AQ", "Antarctica"),
+    503: ("AU", "Australia"),
+    506: ("MM", "Myanmar"),
+    508: ("BN", "Brunei"),
+    510: ("FM", "Micronesia"),
+    511: ("PW", "Palau"),
+    512: ("NZ", "New Zealand"),
+    514: ("KH", "Cambodia"),
+    515: ("KH", "Cambodia"),
+    516: ("CX", "Christmas Island"),
+    518: ("CK", "Cook Islands"),
+    520: ("FJ", "Fiji"),
+    523: ("CC", "Cocos Islands"),
+    525: ("ID", "Indonesia"),
+    529: ("KI", "Kiribati"),
+    531: ("LA", "Laos"),
+    533: ("MY", "Malaysia"),
+    536: ("MP", "Northern Mariana Islands"),
+    538: ("MH", "Marshall Islands"),
+    540: ("NC", "New Caledonia"),
+    542: ("NU", "Niue"),
+    544: ("NR", "Nauru"),
+    546: ("PF", "French Polynesia"),
+    548: ("PH", "Philippines"),
+    550: ("TL", "Timor-Leste"),
+    553: ("PG", "Papua New Guinea"),
+    555: ("PN", "Pitcairn"),
+    557: ("SB", "Solomon Islands"),
+    559: ("AS", "American Samoa"),
+    561: ("WS", "Samoa"),
+    563: ("SG", "Singapore"),
+    564: ("SG", "Singapore"),
+    565: ("SG", "Singapore"),
+    566: ("SG", "Singapore"),
+    567: ("TH", "Thailand"),
+    570: ("TO", "Tonga"),
+    572: ("TV", "Tuvalu"),
+    574: ("VN", "Vietnam"),
+    576: ("VU", "Vanuatu"),
+    577: ("VU", "Vanuatu"),
+    578: ("WF", "Wallis and Futuna"),
+    601: ("ZA", "South Africa"),
+    603: ("AO", "Angola"),
+    605: ("DZ", "Algeria"),
+    607: ("TF", "French Southern Territories"),
+    608: ("IO", "Ascension"),
+    609: ("BI", "Burundi"),
+    610: ("BJ", "Benin"),
+    611: ("BW", "Botswana"),
+    612: ("CF", "Central African Republic"),
+    613: ("CM", "Cameroon"),
+    615: ("CG", "Congo"),
+    616: ("KM", "Comoros"),
+    617: ("CV", "Cabo Verde"),
+    618: ("AQ", "Crozet"),
+    619: ("CI", "Côte d'Ivoire"),
+    620: ("KM", "Comoros"),
+    621: ("DJ", "Djibouti"),
+    622: ("EG", "Egypt"),
+    624: ("ET", "Ethiopia"),
+    625: ("ER", "Eritrea"),
+    626: ("GA", "Gabon"),
+    627: ("GH", "Ghana"),
+    629: ("GM", "Gambia"),
+    630: ("GW", "Guinea-Bissau"),
+    631: ("GQ", "Equatorial Guinea"),
+    632: ("GN", "Guinea"),
+    633: ("BF", "Burkina Faso"),
+    634: ("KE", "Kenya"),
+    635: ("AQ", "Kerguelen"),
+    636: ("LR", "Liberia"),
+    637: ("LR", "Liberia"),
+    638: ("SS", "South Sudan"),
+    642: ("LY", "Libya"),
+    644: ("LS", "Lesotho"),
+    645: ("MU", "Mauritius"),
+    647: ("MG", "Madagascar"),
+    649: ("ML", "Mali"),
+    650: ("MZ", "Mozambique"),
+    654: ("MR", "Mauritania"),
+    655: ("MW", "Malawi"),
+    656: ("NE", "Niger"),
+    657: ("NG", "Nigeria"),
+    659: ("NA", "Namibia"),
+    660: ("RE", "Réunion"),
+    661: ("RW", "Rwanda"),
+    662: ("SD", "Sudan"),
+    663: ("SN", "Senegal"),
+    664: ("SC", "Seychelles"),
+    665: ("SH", "Saint Helena"),
+    666: ("SO", "Somalia"),
+    667: ("SL", "Sierra Leone"),
+    668: ("ST", "São Tomé and Príncipe"),
+    669: ("SZ", "Eswatini"),
+    670: ("TD", "Chad"),
+    671: ("TG", "Togo"),
+    672: ("TN", "Tunisia"),
+    674: ("TZ", "Tanzania"),
+    675: ("UG", "Uganda"),
+    676: ("CD", "DR Congo"),
+    677: ("TZ", "Tanzania"),
+    678: ("ZM", "Zambia"),
+    679: ("ZW", "Zimbabwe"),
+    701: ("AR", "Argentina"),
+    710: ("BR", "Brazil"),
+    720: ("BO", "Bolivia"),
+    725: ("CL", "Chile"),
+    730: ("CO", "Colombia"),
+    735: ("EC", "Ecuador"),
+    740: ("FK", "Falkland Islands"),
+    745: ("GF", "French Guiana"),
+    750: ("GY", "Guyana"),
+    755: ("PY", "Paraguay"),
+    760: ("PE", "Peru"),
+    765: ("SR", "Suriname"),
+    770: ("UY", "Uruguay"),
+    775: ("VE", "Venezuela"),
 }
 _BY_CC: dict[str, str] = {}
 for _cc, _name in MID.values():
     _BY_CC.setdefault(_cc, _name)
-_BY_CC.update({"US": "United States", "CY": "Cyprus", "PA": "Panama", "GR": "Greece", "PT": "Portugal", "DE": "Germany", "MT": "Malta", "SG": "Singapore", "LR": "Liberia", "NO": "Norway", "SE": "Sweden", "NL": "Netherlands", "FR": "France", "GB": "United Kingdom", "DK": "Denmark", "ES": "Spain", "CN": "China", "JP": "Japan", "KR": "South Korea", "AE": "United Arab Emirates", "VC": "Saint Vincent", "YE": "Yemen", "KH": "Cambodia", "TZ": "Tanzania", "VU": "Vanuatu", "KM": "Comoros", "BS": "Bahamas", "AG": "Antigua and Barbuda", "AQ": "Antarctica"})
+_BY_CC.update(
+    {
+        "US": "United States",
+        "CY": "Cyprus",
+        "PA": "Panama",
+        "GR": "Greece",
+        "PT": "Portugal",
+        "DE": "Germany",
+        "MT": "Malta",
+        "SG": "Singapore",
+        "LR": "Liberia",
+        "NO": "Norway",
+        "SE": "Sweden",
+        "NL": "Netherlands",
+        "FR": "France",
+        "GB": "United Kingdom",
+        "DK": "Denmark",
+        "ES": "Spain",
+        "CN": "China",
+        "JP": "Japan",
+        "KR": "South Korea",
+        "AE": "United Arab Emirates",
+        "VC": "Saint Vincent",
+        "YE": "Yemen",
+        "KH": "Cambodia",
+        "TZ": "Tanzania",
+        "VU": "Vanuatu",
+        "KM": "Comoros",
+        "BS": "Bahamas",
+        "AG": "Antigua and Barbuda",
+        "AQ": "Antarctica",
+    }
+)
 
 
 def flag_of(mmsi: str, cc: str = "") -> tuple[str, str]:
@@ -211,7 +553,10 @@ def _bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> tuple[float,
     """(km, degrees) from the first point to the second."""
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dl = math.radians(lon2 - lon1)
-    a = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    a = (
+        math.sin((p2 - p1) / 2) ** 2
+        + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    )
     km = 6371.0 * 2 * math.asin(math.sqrt(a))
     y = math.sin(dl) * math.cos(p2)
     x = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
@@ -222,12 +567,69 @@ def bbox_of(lat: float, lon: float, radius_km: float) -> list[list[float]]:
     """[[south, west], [north, east]] round a point, as aisstream wants it."""
     dlat = radius_km / 111.0
     dlon = radius_km / max(20.0, 111.0 * math.cos(math.radians(lat)))
-    return [[round(max(-90, lat - dlat), 3), round(max(-180, lon - dlon), 3)], [round(min(90, lat + dlat), 3), round(min(180, lon + dlon), 3)]]
+    return [
+        [round(max(-90, lat - dlat), 3), round(max(-180, lon - dlon), 3)],
+        [round(min(90, lat + dlat), 3), round(min(180, lon + dlon), 3)],
+    ]
 
 
-_SMALL = {"of", "the", "and", "de", "da", "di", "del", "der", "van", "von", "la", "le", "du", "des", "y", "e"}
+_SMALL = {
+    "of",
+    "the",
+    "and",
+    "de",
+    "da",
+    "di",
+    "del",
+    "der",
+    "van",
+    "von",
+    "la",
+    "le",
+    "du",
+    "des",
+    "y",
+    "e",
+}
 # a line's or a navy's prefix stays in capitals: MSC Loreto, HMAS Canberra
-_PREFIXES = {"MSC", "CMA", "CGM", "HMAS", "HMS", "USS", "USNS", "HMCS", "HMNZS", "RV", "MV", "MT", "SS", "OOCL", "APL", "NYK", "ONE", "CSCL", "YM", "ZIM", "KMTC", "SITC", "RRS", "TS", "MSV", "FV", "CSAV", "PIL", "CNCO", "ANL", "UASC", "ESL", "KOTC", "SCF", "STI", "BW"}
+_PREFIXES = {
+    "MSC",
+    "CMA",
+    "CGM",
+    "HMAS",
+    "HMS",
+    "USS",
+    "USNS",
+    "HMCS",
+    "HMNZS",
+    "RV",
+    "MV",
+    "MT",
+    "SS",
+    "OOCL",
+    "APL",
+    "NYK",
+    "ONE",
+    "CSCL",
+    "YM",
+    "ZIM",
+    "KMTC",
+    "SITC",
+    "RRS",
+    "TS",
+    "MSV",
+    "FV",
+    "CSAV",
+    "PIL",
+    "CNCO",
+    "ANL",
+    "UASC",
+    "ESL",
+    "KOTC",
+    "SCF",
+    "STI",
+    "BW",
+}
 
 
 def ship_name(raw: Any) -> str:
@@ -240,12 +642,18 @@ def ship_name(raw: Any) -> str:
         lw = w.lower()
         if i and lw in _SMALL:
             words.append(lw)
-        elif i == 0 and len(s.split()) > 1 and (w in _PREFIXES or (len(w) <= 2 and w.isalpha() and w.isupper())):
+        elif (
+            i == 0
+            and len(s.split()) > 1
+            and (w in _PREFIXES or (len(w) <= 2 and w.isalpha() and w.isupper()))
+        ):
             words.append(w)  # a prefix such as MSC, CMA, HMAS, RV
         elif re.fullmatch(r"[A-Z]{1,3}\d+", w):
             words.append(w)  # a hull number: PB 24, FV 7
         else:
-            words.append(w[:1].upper() + w[1:].lower() if w.isupper() or w.islower() else w)
+            words.append(
+                w[:1].upper() + w[1:].lower() if w.isupper() or w.islower() else w
+            )
     return " ".join(words)
 
 
@@ -267,10 +675,17 @@ def destination_name(raw: Any) -> str:
     return " ".join(out)
 
 
-def eta_text(month: Any, day: Any, hour: Any, minute: Any, now: datetime | None = None) -> str:
+def eta_text(
+    month: Any, day: Any, hour: Any, minute: Any, now: datetime | None = None
+) -> str:
     """'Tue 14:00', or '' when the crew left it blank."""
     try:
-        m, d, h, mi = int(month or 0), int(day or 0), int(hour if hour is not None else 24), int(minute if minute is not None else 60)
+        m, d, h, mi = (
+            int(month or 0),
+            int(day or 0),
+            int(hour if hour is not None else 24),
+            int(minute if minute is not None else 60),
+        )
     except (TypeError, ValueError):
         return ""
     if not (1 <= m <= 12 and 1 <= d <= 31):
@@ -278,10 +693,16 @@ def eta_text(month: Any, day: Any, hour: Any, minute: Any, now: datetime | None 
     now = now or datetime.now().astimezone()
     year = now.year + (1 if m < now.month - 1 else 0)
     try:
-        when = datetime(year, m, d, h if 0 <= h <= 23 else 0, mi if 0 <= mi <= 59 else 0)
+        when = datetime(
+            year, m, d, h if 0 <= h <= 23 else 0, mi if 0 <= mi <= 59 else 0
+        )
     except ValueError:
         return ""
-    day_word = when.strftime("%a %-d %b") if sys.platform != "win32" else when.strftime("%a %d %b")
+    day_word = (
+        when.strftime("%a %-d %b")
+        if sys.platform != "win32"
+        else when.strftime("%a %d %b")
+    )
     return f"{day_word} {when.strftime('%H:%M')}" if 0 <= h <= 23 else day_word
 
 
@@ -296,12 +717,19 @@ def _num(v: Any, default: float = 0.0) -> float:
         return default
 
 
-def make_row(v: dict[str, Any], lat: float, lon: float, now: float) -> dict[str, Any] | None:
+def make_row(
+    v: dict[str, Any], lat: float, lon: float, now: float
+) -> dict[str, Any] | None:
     """The page's vessel from a stored record: {mmsi, name, cs, imo, code, typ,
     cls, len, beam, draught, lat, lon, sog, cog, hdg, status, moving, dest,
     eta, flag_cc, flag, km, dir, age_s}."""
     vlat, vlon = v.get("lat"), v.get("lon")
-    if not isinstance(vlat, (int, float)) or not isinstance(vlon, (int, float)) or abs(vlat) > 90 or abs(vlon) > 180:
+    if (
+        not isinstance(vlat, (int, float))
+        or not isinstance(vlon, (int, float))
+        or abs(vlat) > 90
+        or abs(vlon) > 180
+    ):
         return None
     km, deg = _bearing(lat, lon, float(vlat), float(vlon))
     label, cls, code = type_of(v.get("type"))
@@ -318,7 +746,9 @@ def make_row(v: dict[str, Any], lat: float, lon: float, now: float) -> dict[str,
         "mmsi": str(v.get("mmsi") or ""),
         "name": name,
         "cs": str(v.get("cs") or "").strip().upper(),
-        "imo": str(v.get("imo") or "").strip() if str(v.get("imo") or "0").strip() not in ("0", "") else "",
+        "imo": str(v.get("imo") or "").strip()
+        if str(v.get("imo") or "0").strip() not in ("0", "")
+        else "",
         "code": code,
         "typ": label,
         "cls": cls,
@@ -369,8 +799,14 @@ class Listener:
         got = N.read_json(path, None)
         if isinstance(got, dict) and isinstance(got.get("vessels"), dict):
             cutoff = time.time() - STATIC_S
-            self.vessels = {k: v for k, v in got["vessels"].items() if isinstance(v, dict) and _num(v.get("at")) > cutoff}
-        self.thread = threading.Thread(target=self._run, name="underway-listener", daemon=True)
+            self.vessels = {
+                k: v
+                for k, v in got["vessels"].items()
+                if isinstance(v, dict) and _num(v.get("at")) > cutoff
+            }
+        self.thread = threading.Thread(
+            target=self._run, name="underway-listener", daemon=True
+        )
         self.thread.start()
 
     # -- what a fetch reads -------------------------------------------------
@@ -379,7 +815,11 @@ class Listener:
         self.asked = time.time()
         cutoff = time.time() - STALE_S
         with self.lock:
-            return [dict(v) for v in self.vessels.values() if _num(v.get("at")) > cutoff and v.get("lat") is not None]
+            return [
+                dict(v)
+                for v in self.vessels.values()
+                if _num(v.get("at")) > cutoff and v.get("lat") is not None
+            ]
 
     @property
     def warming(self) -> bool:
@@ -398,7 +838,11 @@ class Listener:
             except Exception as err:  # noqa: BLE001 - the stream is reconnected whatever went wrong
                 self.connected = False
                 self.error = f"{type(err).__name__}: {str(err)[:120]}"
-                if "refused" in self.error.lower() or "401" in self.error or "403" in self.error:
+                if (
+                    "refused" in self.error.lower()
+                    or "401" in self.error
+                    or "403" in self.error
+                ):
                     self.error = "aisstream.io refused the key"
                 self._save()
                 if self.stop.wait(backoff):
@@ -416,11 +860,21 @@ class Listener:
     def _session(self) -> None:
         sock = WS.WebSocket(AISSTREAM, timeout=20, ua=self.ua)
         try:
-            sock.send_text(json.dumps({
-                "APIKey": self.key,
-                "BoundingBoxes": [self.box],
-                "FilterMessageTypes": ["PositionReport", "ShipStaticData", "StandardClassBPositionReport", "ExtendedClassBPositionReport", "StaticDataReport"],
-            }))
+            sock.send_text(
+                json.dumps(
+                    {
+                        "APIKey": self.key,
+                        "BoundingBoxes": [self.box],
+                        "FilterMessageTypes": [
+                            "PositionReport",
+                            "ShipStaticData",
+                            "StandardClassBPositionReport",
+                            "ExtendedClassBPositionReport",
+                            "StaticDataReport",
+                        ],
+                    }
+                )
+            )
             self.connected = True
             self.error = ""
             last_save = time.time()
@@ -465,11 +919,23 @@ class Listener:
             v["at"] = now
             if meta.get("ShipName") and str(meta["ShipName"]).strip("@ "):
                 v["name"] = str(meta["ShipName"])
-            if kind in ("PositionReport", "StandardClassBPositionReport", "ExtendedClassBPositionReport"):
-                if isinstance(body.get("Latitude"), (int, float)) and isinstance(body.get("Longitude"), (int, float)):
-                    v["lat"], v["lon"] = float(body["Latitude"]), float(body["Longitude"])
+            if kind in (
+                "PositionReport",
+                "StandardClassBPositionReport",
+                "ExtendedClassBPositionReport",
+            ):
+                if isinstance(body.get("Latitude"), (int, float)) and isinstance(
+                    body.get("Longitude"), (int, float)
+                ):
+                    v["lat"], v["lon"] = (
+                        float(body["Latitude"]),
+                        float(body["Longitude"]),
+                    )
                 elif isinstance(meta.get("latitude"), (int, float)):
-                    v["lat"], v["lon"] = float(meta["latitude"]), float(meta.get("longitude") or 0)
+                    v["lat"], v["lon"] = (
+                        float(meta["latitude"]),
+                        float(meta.get("longitude") or 0),
+                    )
                 v["sog"] = body.get("Sog")
                 v["cog"] = body.get("Cog")
                 v["hdg"] = body.get("TrueHeading")
@@ -496,7 +962,12 @@ class Listener:
                     v["draught"] = body["MaximumStaticDraught"]
                 eta = body.get("Eta") or {}
                 if isinstance(eta, dict):
-                    v["eta"] = eta_text(eta.get("Month"), eta.get("Day"), eta.get("Hour"), eta.get("Minute"))
+                    v["eta"] = eta_text(
+                        eta.get("Month"),
+                        eta.get("Day"),
+                        eta.get("Hour"),
+                        eta.get("Minute"),
+                    )
                 _dims(v, body.get("Dimension"))
             elif kind == "StaticDataReport":
                 a = body.get("ReportA") or {}
@@ -519,7 +990,10 @@ class Listener:
             cutoff = time.time() - STATIC_S
             keep = {k: v for k, v in self.vessels.items() if _num(v.get("at")) > cutoff}
             self._dirty = False
-        N.write(self.path, json.dumps({"at": time.time(), "box": self.box, "vessels": keep}).encode())
+        N.write(
+            self.path,
+            json.dumps({"at": time.time(), "box": self.box, "vessels": keep}).encode(),
+        )
 
 
 def _dims(v: dict[str, Any], d: Any) -> None:
@@ -565,33 +1039,49 @@ def _receiver_rows(data: Any) -> list[dict[str, Any]]:
     for s in ships if isinstance(ships, list) else []:
         if not isinstance(s, dict) or not s.get("mmsi"):
             continue
-        out.append({
-            "mmsi": str(s.get("mmsi")),
-            "name": s.get("shipname") or "",
-            "cs": s.get("callsign") or "",
-            "imo": str(s.get("imo") or ""),
-            "type": s.get("shiptype"),
-            "lat": s.get("lat"),
-            "lon": s.get("lon"),
-            "sog": s.get("speed"),
-            "cog": s.get("cog"),
-            "hdg": s.get("heading"),
-            "status": s.get("status"),
-            "dest": s.get("destination") or "",
-            "eta": eta_text(s.get("eta_month"), s.get("eta_day"), s.get("eta_hour"), s.get("eta_minute")),
-            "draught": s.get("draught"),
-            "len": _num(s.get("to_bow")) + _num(s.get("to_stern")),
-            "beam": _num(s.get("to_port")) + _num(s.get("to_starboard")),
-            "cc": s.get("country") or "",
-            "at": now - _num(s.get("last_signal")),
-        })
+        out.append(
+            {
+                "mmsi": str(s.get("mmsi")),
+                "name": s.get("shipname") or "",
+                "cs": s.get("callsign") or "",
+                "imo": str(s.get("imo") or ""),
+                "type": s.get("shiptype"),
+                "lat": s.get("lat"),
+                "lon": s.get("lon"),
+                "sog": s.get("speed"),
+                "cog": s.get("cog"),
+                "hdg": s.get("heading"),
+                "status": s.get("status"),
+                "dest": s.get("destination") or "",
+                "eta": eta_text(
+                    s.get("eta_month"),
+                    s.get("eta_day"),
+                    s.get("eta_hour"),
+                    s.get("eta_minute"),
+                ),
+                "draught": s.get("draught"),
+                "len": _num(s.get("to_bow")) + _num(s.get("to_stern")),
+                "beam": _num(s.get("to_port")) + _num(s.get("to_starboard")),
+                "cc": s.get("country") or "",
+                "at": now - _num(s.get("last_signal")),
+            }
+        )
     return out
 
 
 # ----------------------------------------------------------------------
 # The vessels near a place
 # ----------------------------------------------------------------------
-def nearby(source: str, receiver_url: str, api_key: str, lat: float, lon: float, radius_km: float, data_dir: Path, ua: str) -> tuple[list[dict[str, Any]], str | None, str, bool]:
+def nearby(
+    source: str,
+    receiver_url: str,
+    api_key: str,
+    lat: float,
+    lon: float,
+    radius_km: float,
+    data_dir: Path,
+    ua: str,
+) -> tuple[list[dict[str, Any]], str | None, str, bool]:
     """(rows, error, feed, warming): the vessels within ``radius_km`` of a
     point, nearest first. ``warming`` is True while a fresh listener has not
     heard anything yet, so an empty sea is not yet an empty sea."""
@@ -599,7 +1089,12 @@ def nearby(source: str, receiver_url: str, api_key: str, lat: float, lon: float,
     if source == "receiver":
         base = str(receiver_url or "").strip().rstrip("/")
         if not base:
-            return [], "Give the receiver's address (for AIS-catcher, http://host:8100).", "", False
+            return (
+                [],
+                "Give the receiver's address (for AIS-catcher, http://host:8100).",
+                "",
+                False,
+            )
         if not base.startswith("http"):
             base = "http://" + base
         url = base if base.endswith(".json") else base + "/api/ships.json"
@@ -613,7 +1108,10 @@ def nearby(source: str, receiver_url: str, api_key: str, lat: float, lon: float,
                 if isinstance(got, dict):
                     data = got.get("data")
                 else:
-                    why = {"unreachable": "could not be reached", "auth": "refused the request"}.get(err or "", err or "gave no answer")
+                    why = {
+                        "unreachable": "could not be reached",
+                        "auth": "refused the request",
+                    }.get(err or "", err or "gave no answer")
                     return [], f"The receiver {why}.", "", False
             else:
                 N.write(cache, json.dumps({"at": now, "data": data}).encode())
@@ -623,7 +1121,12 @@ def nearby(source: str, receiver_url: str, api_key: str, lat: float, lon: float,
     else:
         key = str(api_key or "").strip()
         if not key:
-            return [], "Give an aisstream.io key in the Underway Core settings (free at aisstream.io), or point the cell at a receiver of your own.", "", False
+            return (
+                [],
+                "Give an aisstream.io key in the Underway Core settings (free at aisstream.io), or point the cell at a receiver of your own.",
+                "",
+                False,
+            )
         lst = listener_for(key, bbox_of(lat, lon, radius_km), data_dir, ua)
         records = lst.snapshot()
         feed = "aisstream.io"
@@ -639,7 +1142,9 @@ def nearby(source: str, receiver_url: str, api_key: str, lat: float, lon: float,
     return rows, None, feed, warming
 
 
-def listener_note(source: str, api_key: str, lat: float, lon: float, radius_km: float) -> str:
+def listener_note(
+    source: str, api_key: str, lat: float, lon: float, radius_km: float
+) -> str:
     """A word on the stream for the foot of the page: connected, reconnecting, or nothing."""
     if source != "aisstream":
         return ""
@@ -666,9 +1171,25 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
     imo = re.sub(r"\D", "", str(imo or ""))
     if not imo or imo == "0":
         return {}
+    if commons is not None:
+        pic = commons.portrait(f"IMO {imo}", name=name, ident=imo, descend="(ship")
+        return (
+            {
+                "src": pic["src"],
+                "by": pic["by"],
+                "lic": pic["lic"],
+                "link": pic["link"],
+                "w": str(pic["w"]),
+                "h": str(pic["h"]),
+            }
+            if pic
+            else {}
+        )
     cache = data_dir / "photos" / f"imo_{imo}.json"
     got = N.read_json(cache, None)
-    if isinstance(got, dict) and time.time() - _num(got.get("at")) < (PHOTO_S if got.get("photo") else 7 * 86400):
+    if isinstance(got, dict) and time.time() - _num(got.get("at")) < (
+        PHOTO_S if got.get("photo") else 7 * 86400
+    ):
         return got.get("photo") or {}
     data, err = _members(f"Category:IMO {imo}", ua)
     photo: dict[str, str] = {}
@@ -679,7 +1200,16 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
         titles, _more = _files_and_subcats(deeper)
     ranked = sorted(titles, key=lambda ti: -title_score(ti, imo, name))[:12]
     if ranked:
-        q = urllib.parse.urlencode({"action": "query", "format": "json", "titles": "|".join(ranked), "prop": "imageinfo", "iiprop": "url|extmetadata|size", "iiurlwidth": "1400"})
+        q = urllib.parse.urlencode(
+            {
+                "action": "query",
+                "format": "json",
+                "titles": "|".join(ranked),
+                "prop": "imageinfo",
+                "iiprop": "url|extmetadata|size",
+                "iiurlwidth": "1400",
+            }
+        )
         info, err2 = N.get_json(f"{COMMONS}?{q}", ua=ua, timeout=4)
         best: tuple[float, dict[str, str]] | None = None
         with contextlib.suppress(KeyError, TypeError, AttributeError):
@@ -692,8 +1222,20 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
                 by = _plain(str((ex.get("Artist") or {}).get("value") or ""))
                 lic = str((ex.get("LicenseShortName") or {}).get("value") or "")
                 ratio = w / max(h, 1)
-                score = title_score(str(page.get("title") or ""), imo, name) + min(ratio, 2.2) + (0.5 if 1.2 <= ratio <= 1.9 else 0) + min(w, 4000) / 8000
-                cand = {"src": str(ii["thumburl"]), "by": by[:80], "lic": lic[:40], "link": str(ii.get("descriptionurl") or ""), "w": str(int(w)), "h": str(int(h))}
+                score = (
+                    title_score(str(page.get("title") or ""), imo, name)
+                    + min(ratio, 2.2)
+                    + (0.5 if 1.2 <= ratio <= 1.9 else 0)
+                    + min(w, 4000) / 8000
+                )
+                cand = {
+                    "src": str(ii["thumburl"]),
+                    "by": by[:80],
+                    "lic": lic[:40],
+                    "link": str(ii.get("descriptionurl") or ""),
+                    "w": str(int(w)),
+                    "h": str(int(h)),
+                }
                 if best is None or score > best[0]:
                     best = (score, cand)
         if best:
@@ -706,11 +1248,70 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
 
 
 NOT_A_PORTRAIT = (
-    "plaque", "plate", "interior", "cabin", "deck", "bridge", "restaurant", "lobby", "atrium", "pool", "lounge", "theatre", "theater",
-    "model", "logo", "map", "plan", "drawing", "diagram", "engine", "propeller", "anchor", "bell", "funnel", "detail", "crew", "captain",
-    "menu", "ticket", "poster", "stamp", "crop", "closeup", "close-up", "inside", "stair", "corridor", "suite", "room", "on board", "aboard",
-    "onboard", "from the deck", "view from", "seen from", "wake of", "visit", "courtesy", "ceremony", "christening", "naming", "launch",
-    "lifeboat", "gangway", "passenger", "people", "tour", "night", "fireworks", "sign", "bow of", "stern of", "hull of", "part of",
+    "plaque",
+    "plate",
+    "interior",
+    "cabin",
+    "deck",
+    "bridge",
+    "restaurant",
+    "lobby",
+    "atrium",
+    "pool",
+    "lounge",
+    "theatre",
+    "theater",
+    "model",
+    "logo",
+    "map",
+    "plan",
+    "drawing",
+    "diagram",
+    "engine",
+    "propeller",
+    "anchor",
+    "bell",
+    "funnel",
+    "detail",
+    "crew",
+    "captain",
+    "menu",
+    "ticket",
+    "poster",
+    "stamp",
+    "crop",
+    "closeup",
+    "close-up",
+    "inside",
+    "stair",
+    "corridor",
+    "suite",
+    "room",
+    "on board",
+    "aboard",
+    "onboard",
+    "from the deck",
+    "view from",
+    "seen from",
+    "wake of",
+    "visit",
+    "courtesy",
+    "ceremony",
+    "christening",
+    "naming",
+    "launch",
+    "lifeboat",
+    "gangway",
+    "passenger",
+    "people",
+    "tour",
+    "night",
+    "fireworks",
+    "sign",
+    "bow of",
+    "stern of",
+    "hull of",
+    "part of",
 )
 
 
@@ -738,7 +1339,16 @@ def title_score(title: str, imo: str, name: str = "") -> float:
 
 
 def _members(category: str, ua: str, limit: int = 20) -> tuple[Any, str | None]:
-    q = urllib.parse.urlencode({"action": "query", "format": "json", "list": "categorymembers", "cmtitle": category, "cmtype": "file|subcat", "cmlimit": str(limit)})
+    q = urllib.parse.urlencode(
+        {
+            "action": "query",
+            "format": "json",
+            "list": "categorymembers",
+            "cmtitle": category,
+            "cmtype": "file|subcat",
+            "cmlimit": str(limit),
+        }
+    )
     return N.get_json(f"{COMMONS}?{q}", ua=ua, timeout=4)
 
 
@@ -760,7 +1370,9 @@ def _plain(text: str) -> str:
     return " ".join(html.unescape(s).split())
 
 
-def photo_src(photo: dict[str, str], data_dir: Path, ua: str, px: int, levels: str) -> str:
+def photo_src(
+    photo: dict[str, str], data_dir: Path, ua: str, px: int, levels: str
+) -> str:
     """The photograph as a data URI, fetched once and resized for the page."""
     url = photo.get("src") or ""
     if not url:
@@ -770,7 +1382,9 @@ def photo_src(photo: dict[str, str], data_dir: Path, ua: str, px: int, levels: s
         return ""
     import hashlib
 
-    cache = data_dir / "img" / (hashlib.sha1(url.encode()).hexdigest()[:20] + f"_{px}.jpg")
+    cache = (
+        data_dir / "img" / (hashlib.sha1(url.encode()).hexdigest()[:20] + f"_{px}.jpg")
+    )
     return N.render(raw, px, None, cache, levels)
 
 
@@ -838,7 +1452,9 @@ def _hhmm(text: str) -> int | None:
     return None
 
 
-def sea_now(lat: float, lon: float, mins: int, data_dir: Path, ua: str) -> tuple[str, str]:
+def sea_now(
+    lat: float, lon: float, mins: int, data_dir: Path, ua: str
+) -> tuple[str, str]:
     """(time bucket, weather bucket) at the place now, Open-Meteo kept WEATHER_S;
     clear midday or night when it cannot be reached."""
     cache = data_dir / "weather" / f"{lat:.2f}_{lon:.2f}.json"

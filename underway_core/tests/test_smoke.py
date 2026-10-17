@@ -104,6 +104,7 @@ def offline(monkeypatch):
         return None, "unreachable"
 
     monkeypatch.setattr(N, "http", fake_http)
+    monkeypatch.setattr(A, "commons", None)  # the widget's own lookup; the host's has its own test below
 
     def fake_fal(url, body, key, timeout):
         prompts.append({**body, "_url": url})
@@ -164,7 +165,7 @@ RECEIVER = {**PORT_MELBOURNE, "source": "receiver", "receiver_url": "http://pi.l
 def test_manifests_and_client_files():
     for wid in ("underway_core", "underway_photo", "underway_plate", "underway_fleet", "underway_scene"):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
-        assert m["version"] == "0.1.1" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
+        assert m["version"] == "0.1.2" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
         if m["kind"] == "widget":
             assert m["render"]["warm_ahead_s"] == 150
             assert (ROOT / wid / "client.js").exists()
@@ -460,3 +461,20 @@ def test_core_and_prompt_pieces(tmp_path):
     text = P.prompt_for({"style": "bottle", "typ": "Tug", "about": "a tug", "name": "Svitzer Eureka", "flag": "Australia", "len": 32})
     assert "filling the frame" in text and "about 32 metres long" in text and "pure white paper" not in text, "a style with its own ground is never cut out"
     assert P.monster_choices("story") and P.visitors_of(["nope"]) == P.monster_choices("myth")
+
+
+def test_the_hosts_commons_lookup_is_used_when_there(tmp_path, offline, monkeypatch):
+    """On a host with app.commons the photograph comes from it, in the widget's shape."""
+    from app import commons as host_commons
+
+    monkeypatch.setattr(A, "commons", host_commons)
+    asked = []
+
+    def fake_portrait(cat, *, name="", ident="", **kw):
+        asked.append((cat, name, ident, kw.get("descend")))
+        return {"title": "File:Maersk Elba IMO 9458054.jpg", "src": "https://upload.wikimedia.org/elba_wide.jpg", "link": "https://commons.wikimedia.org/wiki/File:X.jpg", "by": "A. Spotter", "lic": "CC BY-SA 4.0", "w": 1800, "h": 1200}
+
+    monkeypatch.setattr(host_commons, "portrait", fake_portrait)
+    p = A.photo_of("9458054", tmp_path, "ua", "Maersk Elba")
+    assert asked == [("IMO 9458054", "Maersk Elba", "9458054", "(ship")] and p["by"] == "A. Spotter" and p["w"] == "1800"
+    assert not (tmp_path / "photos").exists(), "nothing kept by the widget; the host keeps it"
