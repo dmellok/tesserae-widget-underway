@@ -1,0 +1,1069 @@
+{
+  "tesserae_compat": "1.x",
+  "name": "Underway: Scene",
+  "version": "0.1.0",
+  "kind": "widget",
+  "tesserae_min": "0.463.0",
+  "description": "The nearest vessel as one whole painting across the page: the ship from her own photograph on a painted sea (open water, in harbour, along the coast, sunset, night, heavy weather or an ornate plate), with her particulars set over it. Her photograph without a fal.ai key.",
+  "icon": "ph-waves",
+  "supports": {
+    "sizes": [
+      "sm",
+      "md",
+      "lg"
+    ]
+  },
+  "requires": [
+    "network:*",
+    "settings:plugin/underway_core",
+    "plugin:underway_core"
+  ],
+  "render": {
+    "needs_network": true,
+    "warm_ahead_s": 150
+  },
+  "design": {
+    "palette": "extended"
+  },
+  "cell_options": [
+    {
+      "name": "source",
+      "type": "select",
+      "label": "Positions from",
+      "default": "aisstream",
+      "choices": [
+        {
+          "value": "aisstream",
+          "label": "aisstream.io (a free key, in the Underway Core settings)"
+        },
+        {
+          "value": "receiver",
+          "label": "A receiver of your own (AIS-catcher)"
+        }
+      ],
+      "help": "aisstream.io streams the world's AIS from a free key; the widget listens for the sea round your place while a page asks. A receiver of your own running AIS-catcher answers at /api/ships.json and hears what it hears."
+    },
+    {
+      "name": "receiver_url",
+      "type": "string",
+      "label": "Receiver address",
+      "default": "",
+      "help": "For example http://pi.local:8100; the widget asks for /api/ships.json.",
+      "show_if": {
+        "source": "receiver"
+      }
+    },
+    {
+      "name": "location",
+      "type": "location_search",
+      "label": "Place",
+      "default": "",
+      "help": "The point the distances and bearings are from, and the middle of the sea listened to. Falls back to the app's location."
+    },
+    {
+      "name": "radius_km",
+      "type": "select",
+      "label": "Within",
+      "default": "25",
+      "choices": [
+        {
+          "value": "5",
+          "label": "5 km"
+        },
+        {
+          "value": "10",
+          "label": "10 km"
+        },
+        {
+          "value": "15",
+          "label": "15 km"
+        },
+        {
+          "value": "25",
+          "label": "25 km"
+        },
+        {
+          "value": "35",
+          "label": "35 km"
+        },
+        {
+          "value": "50",
+          "label": "50 km"
+        },
+        {
+          "value": "80",
+          "label": "80 km"
+        }
+      ]
+    },
+    {
+      "name": "include_moored",
+      "type": "boolean",
+      "label": "Include vessels moored or at anchor",
+      "default": true
+    },
+    {
+      "name": "order",
+      "type": "select",
+      "label": "Order",
+      "default": "nearest",
+      "choices": [
+        {
+          "value": "nearest",
+          "label": "Nearest first"
+        },
+        {
+          "value": "largest",
+          "label": "Largest first"
+        },
+        {
+          "value": "fastest",
+          "label": "Fastest first"
+        },
+        {
+          "value": "moving",
+          "label": "Under way first"
+        }
+      ]
+    },
+    {
+      "name": "pictures",
+      "type": "select",
+      "label": "Pictures",
+      "default": "photos",
+      "choices": [
+        {
+          "value": "photos",
+          "label": "Photographs of the ship (Wikimedia Commons, by IMO number)"
+        },
+        {
+          "value": "paintings",
+          "label": "AI paintings, each from her photograph or her particulars"
+        }
+      ],
+      "help": "Photographs cost nothing; a vessel without an IMO number has none. AI paintings paint each ship once, from her photograph where there is one and from her type, size and flag where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
+    },
+    {
+      "name": "style",
+      "type": "select",
+      "label": "Style",
+      "default": "poster",
+      "choices": [
+        {
+          "value": "poster",
+          "label": "Vintage shipping-line poster"
+        },
+        {
+          "value": "engraving_colour",
+          "label": "Hand-coloured engraving"
+        },
+        {
+          "value": "engraving",
+          "label": "Black-ink engraving"
+        },
+        {
+          "value": "technical",
+          "label": "Shipyard profile drawing"
+        },
+        {
+          "value": "watercolour",
+          "label": "Loose watercolour"
+        },
+        {
+          "value": "woodblock",
+          "label": "Japanese woodblock print"
+        },
+        {
+          "value": "linocut",
+          "label": "Linocut"
+        },
+        {
+          "value": "deco",
+          "label": "Art Deco liner poster"
+        },
+        {
+          "value": "midcentury",
+          "label": "Mid-century flat illustration"
+        },
+        {
+          "value": "pencil",
+          "label": "Pencil study"
+        },
+        {
+          "value": "pointillism",
+          "label": "Pointillism"
+        },
+        {
+          "value": "blueprint",
+          "label": "Blueprint"
+        },
+        {
+          "value": "cutaway",
+          "label": "Magazine cutaway"
+        },
+        {
+          "value": "stamp",
+          "label": "Postage stamp"
+        },
+        {
+          "value": "tattoo",
+          "label": "Sailor's tattoo flash"
+        },
+        {
+          "value": "riso",
+          "label": "Risograph"
+        },
+        {
+          "value": "pixel",
+          "label": "Pixel art"
+        },
+        {
+          "value": "lowpoly",
+          "label": "Low-poly render"
+        },
+        {
+          "value": "papercraft",
+          "label": "Paper craft"
+        },
+        {
+          "value": "toybrick",
+          "label": "Toy bricks"
+        },
+        {
+          "value": "bottle",
+          "label": "Ship in a bottle"
+        },
+        {
+          "value": "charcoal",
+          "label": "Charcoal"
+        },
+        {
+          "value": "stained_glass",
+          "label": "Stained glass"
+        },
+        {
+          "value": "gilt",
+          "label": "Illuminated manuscript"
+        },
+        {
+          "value": "scrimshaw",
+          "label": "Scrimshaw"
+        },
+        {
+          "value": "pulp",
+          "label": "Pulp cover"
+        },
+        {
+          "value": "synthwave",
+          "label": "Synthwave"
+        },
+        {
+          "value": "chalk",
+          "label": "Chalkboard"
+        },
+        {
+          "value": "builder",
+          "label": "Build my own"
+        },
+        {
+          "value": "custom",
+          "label": "Your own prompt"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      }
+    },
+    {
+      "name": "custom_style",
+      "type": "textarea",
+      "label": "Your own prompt",
+      "default": "",
+      "show_if": {
+        "pictures": "paintings",
+        "style": "custom"
+      },
+      "presets": [
+        {
+          "label": "Gouache poster",
+          "value": "a vintage shipping-line poster in gouache: flat confident shapes, a palette of deep blues and warm tones, crisp edges"
+        },
+        {
+          "label": "Cutaway",
+          "value": "a 1950s magazine cutaway illustration: the hull opened to show the bridge, the holds and the engine room, labelled in small neat capitals"
+        },
+        {
+          "label": "Chalk pastel",
+          "value": "a chalk pastel drawing on grey paper, soft and smudgy, with the sun catching the bridge windows"
+        },
+        {
+          "label": "Marine oil",
+          "value": "a traditional marine oil painting in the manner of the great ship portraitists: dramatic light, a heaving sea, confident brushwork"
+        },
+        {
+          "label": "Comic ink",
+          "value": "a comic-book ink drawing with bold outlines, hatched shadows and flat halftone colour"
+        },
+        {
+          "label": "Neon line",
+          "value": "a single-weight neon line drawing on white: one continuous glowing line describing the vessel"
+        }
+      ],
+      "help": "The medium and the look; the widget adds the vessel, her photograph and the paper. Pick an example above to start from."
+    },
+    {
+      "name": "build_medium",
+      "type": "select",
+      "label": "Medium",
+      "default": "gouache",
+      "choices": [
+        {
+          "value": "gouache",
+          "label": "Gouache"
+        },
+        {
+          "value": "watercolour",
+          "label": "Watercolour"
+        },
+        {
+          "value": "oil",
+          "label": "Oil paint"
+        },
+        {
+          "value": "pastel",
+          "label": "Soft pastel"
+        },
+        {
+          "value": "coloured_pencil",
+          "label": "Coloured pencil"
+        },
+        {
+          "value": "pencil",
+          "label": "Graphite pencil"
+        },
+        {
+          "value": "ink",
+          "label": "Pen and ink"
+        },
+        {
+          "value": "engraving",
+          "label": "Engraving"
+        },
+        {
+          "value": "lithograph",
+          "label": "Lithograph"
+        },
+        {
+          "value": "woodblock",
+          "label": "Woodblock"
+        },
+        {
+          "value": "linocut",
+          "label": "Linocut"
+        },
+        {
+          "value": "screenprint",
+          "label": "Screen print"
+        },
+        {
+          "value": "vector",
+          "label": "Flat vector"
+        },
+        {
+          "value": "airbrush",
+          "label": "Airbrush"
+        },
+        {
+          "value": "papercut",
+          "label": "Paper cut"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings",
+        "style": "builder"
+      }
+    },
+    {
+      "name": "build_period",
+      "type": "select",
+      "label": "Period or school",
+      "default": "",
+      "choices": [
+        {
+          "value": "",
+          "label": "None in particular"
+        },
+        {
+          "value": "1900s",
+          "label": "Ocean-liner poster"
+        },
+        {
+          "value": "1930s",
+          "label": "1930s travel poster"
+        },
+        {
+          "value": "1950s",
+          "label": "1950s cruise brochure"
+        },
+        {
+          "value": "victorian",
+          "label": "Victorian technical plate"
+        },
+        {
+          "value": "dutch",
+          "label": "Dutch Golden Age marine"
+        },
+        {
+          "value": "ukiyoe",
+          "label": "Ukiyo-e"
+        },
+        {
+          "value": "deco",
+          "label": "Art Deco"
+        },
+        {
+          "value": "bauhaus",
+          "label": "Bauhaus"
+        },
+        {
+          "value": "retrofuture",
+          "label": "Retro-futurism"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings",
+        "style": "builder"
+      }
+    },
+    {
+      "name": "build_palette",
+      "type": "select",
+      "label": "Palette",
+      "default": "",
+      "choices": [
+        {
+          "value": "",
+          "label": "As the hull is"
+        },
+        {
+          "value": "limited",
+          "label": "A few warm tones"
+        },
+        {
+          "value": "muted",
+          "label": "Muted"
+        },
+        {
+          "value": "vivid",
+          "label": "Vivid"
+        },
+        {
+          "value": "duotone",
+          "label": "Two inks"
+        },
+        {
+          "value": "mono",
+          "label": "Black and white"
+        },
+        {
+          "value": "sepia",
+          "label": "Sepia"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings",
+        "style": "builder"
+      }
+    },
+    {
+      "name": "build_line",
+      "type": "select",
+      "label": "Line",
+      "default": "",
+      "choices": [
+        {
+          "value": "",
+          "label": "As the medium has it"
+        },
+        {
+          "value": "fine",
+          "label": "Fine"
+        },
+        {
+          "value": "bold",
+          "label": "Bold"
+        },
+        {
+          "value": "none",
+          "label": "No outlines"
+        },
+        {
+          "value": "sketchy",
+          "label": "Sketchy"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings",
+        "style": "builder"
+      }
+    },
+    {
+      "name": "build_texture",
+      "type": "select",
+      "label": "Texture",
+      "default": "",
+      "choices": [
+        {
+          "value": "",
+          "label": "As the medium has it"
+        },
+        {
+          "value": "paper",
+          "label": "Paper grain"
+        },
+        {
+          "value": "print",
+          "label": "Print texture"
+        },
+        {
+          "value": "smooth",
+          "label": "Smooth"
+        },
+        {
+          "value": "halftone",
+          "label": "Halftone"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings",
+        "style": "builder"
+      }
+    },
+    {
+      "name": "build_mood",
+      "type": "select",
+      "label": "Mood",
+      "default": "",
+      "choices": [
+        {
+          "value": "",
+          "label": "Plain"
+        },
+        {
+          "value": "heroic",
+          "label": "Heroic"
+        },
+        {
+          "value": "calm",
+          "label": "Calm"
+        },
+        {
+          "value": "nostalgic",
+          "label": "Nostalgic"
+        },
+        {
+          "value": "technical",
+          "label": "Precise"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings",
+        "style": "builder"
+      }
+    },
+    {
+      "name": "build_extra",
+      "type": "string",
+      "label": "Your own words",
+      "default": "",
+      "show_if": {
+        "pictures": "paintings",
+        "style": "builder"
+      },
+      "help": "Added to the style: for example, with a little gold leaf on the funnel."
+    },
+    {
+      "name": "backdrop",
+      "type": "select",
+      "label": "Backdrop",
+      "default": "sea",
+      "choices": [
+        {
+          "value": "live",
+          "label": "The sea as it is now: time of day and weather"
+        },
+        {
+          "value": "sea",
+          "label": "The open sea"
+        },
+        {
+          "value": "harbour",
+          "label": "In harbour"
+        },
+        {
+          "value": "coast",
+          "label": "Along the coast"
+        },
+        {
+          "value": "sunset",
+          "label": "Sunset"
+        },
+        {
+          "value": "night",
+          "label": "Night"
+        },
+        {
+          "value": "storm",
+          "label": "Heavy weather"
+        },
+        {
+          "value": "ornate",
+          "label": "Ornate framed plate"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      },
+      "help": "None keeps the vessel alone on the page, cut out. The rest paint a whole picture that fills its frame, in the same style. The sea as it is now takes the time of day and the weather (Open-Meteo) at the place, and paints each condition once per vessel, so a changing sea costs more paintings."
+    },
+    {
+      "name": "fidelity",
+      "type": "select",
+      "label": "Faithfulness",
+      "default": "photo",
+      "choices": [
+        {
+          "value": "photo",
+          "label": "As photographed: the same angle, every mark on the hull"
+        },
+        {
+          "value": "free",
+          "label": "Drawn afresh: the model's own composition, the view below"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      },
+      "help": "As photographed translates the ship's photograph into the medium and keeps her angle, hull colours, funnel markings and name exactly. Drawn afresh lets the model compose her anew in the style, in the view chosen below. A vessel without a photograph is always drawn afresh, from her particulars."
+    },
+    {
+      "name": "view",
+      "type": "select",
+      "label": "View",
+      "default": "side",
+      "choices": [
+        {
+          "value": "side",
+          "label": "Broadside, a little above"
+        },
+        {
+          "value": "profile",
+          "label": "Side-on: a pure profile, as a shipyard drawing"
+        },
+        {
+          "value": "quarter",
+          "label": "From the bow quarter"
+        },
+        {
+          "value": "stern",
+          "label": "From the stern quarter, her wake trailing"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      }
+    },
+    {
+      "name": "model",
+      "type": "select",
+      "label": "Model",
+      "default": "nano_banana",
+      "choices": [
+        {
+          "value": "nano_banana",
+          "label": "Nano Banana (about US$0.04)"
+        },
+        {
+          "value": "nano_banana_pro",
+          "label": "Nano Banana Pro (about US$0.15)"
+        },
+        {
+          "value": "flux_kontext",
+          "label": "FLUX.1 Kontext Pro (about US$0.04)"
+        },
+        {
+          "value": "gpt_image",
+          "label": "GPT Image 2 (about US$0.05)"
+        },
+        {
+          "value": "seedream",
+          "label": "Seedream 4 (about US$0.03)"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      },
+      "help": "All on fal.ai. Nano Banana is faithful and cheap, and keeps the more abstract styles close to the photograph; Nano Banana Pro and FLUX follow those styles further."
+    },
+    {
+      "name": "visitor",
+      "type": "slider",
+      "label": "Chance of a visitor",
+      "default": 0,
+      "min": 0,
+      "max": 100,
+      "step": 5,
+      "unit": "%",
+      "show_if": {
+        "pictures": "paintings"
+      },
+      "help": "Each hour, this chance that something that should not be on the water joins the page, painted in the page's style, with no AIS and a made-up distance and bearing. For fun. Each visitor in a style is one painting against the daily budget."
+    },
+    {
+      "name": "visitors",
+      "type": "multiselect",
+      "label": "Who visits",
+      "default": [
+        "kraken",
+        "serpent",
+        "nessie",
+        "leviathan",
+        "mermaid"
+      ],
+      "show_if": {
+        "pictures": "paintings",
+        "visitor": {
+          "not": 0
+        }
+      },
+      "help": "Tick the visitors the roll may bring: creatures of myth, vessels of story (described to the painter by their look, never named) and real ships of history. With nothing ticked, the creatures of myth.",
+      "choices": [
+        {
+          "value": "kraken",
+          "label": "Myth: Kraken"
+        },
+        {
+          "value": "serpent",
+          "label": "Myth: Sea serpent"
+        },
+        {
+          "value": "nessie",
+          "label": "Myth: Loch monster"
+        },
+        {
+          "value": "leviathan",
+          "label": "Myth: Leviathan"
+        },
+        {
+          "value": "mermaid",
+          "label": "Myth: Mermaid"
+        },
+        {
+          "value": "dutchman",
+          "label": "Story: Ghost ship"
+        },
+        {
+          "value": "nautilus",
+          "label": "Story: Iron submarine"
+        },
+        {
+          "value": "pearl",
+          "label": "Story: Black pirate ship"
+        },
+        {
+          "value": "whale",
+          "label": "Story: White whale"
+        },
+        {
+          "value": "submarine",
+          "label": "Story: Yellow submarine"
+        },
+        {
+          "value": "ark",
+          "label": "Story: The ark"
+        },
+        {
+          "value": "raft",
+          "label": "Real: Balsa raft"
+        },
+        {
+          "value": "clipper",
+          "label": "Real: Tea clipper"
+        },
+        {
+          "value": "victory",
+          "label": "Real: Ship of the line"
+        },
+        {
+          "value": "liner",
+          "label": "Real: Four-funnelled liner"
+        },
+        {
+          "value": "endurance",
+          "label": "Real: Polar barquentine"
+        },
+        {
+          "value": "longship",
+          "label": "Real: Viking longship"
+        },
+        {
+          "value": "trireme",
+          "label": "Real: Trireme"
+        },
+        {
+          "value": "junk",
+          "label": "Real: Chinese junk"
+        },
+        {
+          "value": "galleon",
+          "label": "Real: Spanish galleon"
+        }
+      ]
+    },
+    {
+      "name": "unpainted",
+      "type": "select",
+      "label": "Until the vessel is painted",
+      "default": "photo",
+      "choices": [
+        {
+          "value": "photo",
+          "label": "Show her photograph"
+        },
+        {
+          "value": "silhouette",
+          "label": "Show a silhouette"
+        },
+        {
+          "value": "skip",
+          "label": "Only a painted vessel: the nearest one already painted"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      },
+      "help": "Only a painted vessel looks among the nearest six for one already painted and keeps painting them, so the page has one most of the time; it says so until the first lands."
+    },
+    {
+      "name": "labels",
+      "type": "multiselect",
+      "label": "Label lines",
+      "default": [
+        "dest",
+        "speed",
+        "distance"
+      ],
+      "help": "In this order, under or beside each vessel.",
+      "choices": [
+        {
+          "value": "type",
+          "label": "Type"
+        },
+        {
+          "value": "flag",
+          "label": "Flag"
+        },
+        {
+          "value": "dest",
+          "label": "Destination and ETA"
+        },
+        {
+          "value": "speed",
+          "label": "Speed"
+        },
+        {
+          "value": "distance",
+          "label": "Distance and bearing"
+        },
+        {
+          "value": "course",
+          "label": "Course"
+        },
+        {
+          "value": "status",
+          "label": "Navigational status"
+        },
+        {
+          "value": "length",
+          "label": "Length and beam"
+        },
+        {
+          "value": "imo",
+          "label": "IMO number"
+        }
+      ]
+    },
+    {
+      "name": "title",
+      "type": "string",
+      "label": "Title",
+      "default": "",
+      "help": "Blank uses the place."
+    },
+    {
+      "name": "header",
+      "type": "select",
+      "label": "Title line",
+      "default": "top",
+      "choices": [
+        {
+          "value": "top",
+          "label": "Above the page"
+        },
+        {
+          "value": "bottom",
+          "label": "Below the page"
+        },
+        {
+          "value": "hidden",
+          "label": "Hidden"
+        }
+      ]
+    },
+    {
+      "name": "footer",
+      "type": "select",
+      "label": "Foot of the page",
+      "default": "show",
+      "choices": [
+        {
+          "value": "show",
+          "label": "Status and credits"
+        },
+        {
+          "value": "credits",
+          "label": "Credits only"
+        },
+        {
+          "value": "hide",
+          "label": "Nothing"
+        }
+      ]
+    },
+    {
+      "name": "paper",
+      "type": "select",
+      "label": "Paper",
+      "default": "cream",
+      "choices": [
+        {
+          "value": "cream",
+          "label": "Cream"
+        },
+        {
+          "value": "white",
+          "label": "White"
+        },
+        {
+          "value": "aged",
+          "label": "Aged"
+        },
+        {
+          "value": "blueprint",
+          "label": "Blueprint: pale ink on blue"
+        },
+        {
+          "value": "sea",
+          "label": "A soft sea wash"
+        }
+      ]
+    },
+    {
+      "name": "panel",
+      "type": "select",
+      "label": "Panel",
+      "default": "colour",
+      "choices": [
+        {
+          "value": "colour",
+          "label": "Colour"
+        },
+        {
+          "value": "gray16",
+          "label": "16 greys"
+        },
+        {
+          "value": "gray4",
+          "label": "4 greys"
+        },
+        {
+          "value": "mono",
+          "label": "Black and white"
+        }
+      ],
+      "help": "What the panel can show. Pictures are converted and contrast-stretched to match."
+    },
+    {
+      "name": "text_size",
+      "type": "select",
+      "label": "Text size",
+      "default": "100",
+      "choices": [
+        {
+          "value": "60",
+          "label": "60%"
+        },
+        {
+          "value": "80",
+          "label": "80%"
+        },
+        {
+          "value": "100",
+          "label": "100%"
+        },
+        {
+          "value": "125",
+          "label": "125%"
+        },
+        {
+          "value": "150",
+          "label": "150%"
+        }
+      ]
+    },
+    {
+      "name": "font",
+      "type": "select",
+      "label": "Type",
+      "default": "fell",
+      "choices": [
+        {
+          "value": "fell",
+          "label": "IM Fell English: the old plate"
+        },
+        {
+          "value": "archivo",
+          "label": "Archivo Narrow: clean and plain"
+        },
+        {
+          "value": "georgia",
+          "label": "Georgia: a modern serif"
+        },
+        {
+          "value": "page",
+          "label": "The dashboard's own font"
+        }
+      ],
+      "help": "The face the page is set in. The dashboard's own font follows the page's font picker."
+    }
+  ],
+  "data_schema": {
+    "fields": [
+      {
+        "name": "title",
+        "type": "str",
+        "label": "Title"
+      },
+      {
+        "name": "afloat",
+        "type": "num",
+        "label": "Vessels within reach"
+      },
+      {
+        "name": "vessels",
+        "type": "arr",
+        "label": "Vessels shown"
+      }
+    ]
+  }
+}

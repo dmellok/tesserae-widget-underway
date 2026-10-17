@@ -1,0 +1,375 @@
+{
+  "tesserae_compat": "1.x",
+  "name": "Underway: Photo",
+  "version": "0.1.0",
+  "kind": "widget",
+  "tesserae_min": "0.463.0",
+  "description": "The nearest vessel to a place, right now, as a full-bleed photograph of the very ship (Wikimedia Commons) with her name, type, flag, destination, speed and distance, and the next few along a strip. Positions from aisstream.io or a receiver of your own.",
+  "icon": "ph-boat",
+  "supports": {
+    "sizes": [
+      "sm",
+      "md",
+      "lg"
+    ]
+  },
+  "requires": [
+    "network:*",
+    "settings:plugin/underway_core",
+    "plugin:underway_core"
+  ],
+  "render": {
+    "needs_network": true,
+    "warm_ahead_s": 150
+  },
+  "design": {
+    "palette": "extended"
+  },
+  "cell_options": [
+    {
+      "name": "source",
+      "type": "select",
+      "label": "Positions from",
+      "default": "aisstream",
+      "choices": [
+        {
+          "value": "aisstream",
+          "label": "aisstream.io (a free key, in the Underway Core settings)"
+        },
+        {
+          "value": "receiver",
+          "label": "A receiver of your own (AIS-catcher)"
+        }
+      ],
+      "help": "aisstream.io streams the world's AIS from a free key; the widget listens for the sea round your place while a page asks. A receiver of your own running AIS-catcher answers at /api/ships.json and hears what it hears."
+    },
+    {
+      "name": "receiver_url",
+      "type": "string",
+      "label": "Receiver address",
+      "default": "",
+      "help": "For example http://pi.local:8100; the widget asks for /api/ships.json.",
+      "show_if": {
+        "source": "receiver"
+      }
+    },
+    {
+      "name": "location",
+      "type": "location_search",
+      "label": "Place",
+      "default": "",
+      "help": "The point the distances and bearings are from, and the middle of the sea listened to. Falls back to the app's location."
+    },
+    {
+      "name": "radius_km",
+      "type": "select",
+      "label": "Within",
+      "default": "25",
+      "choices": [
+        {
+          "value": "5",
+          "label": "5 km"
+        },
+        {
+          "value": "10",
+          "label": "10 km"
+        },
+        {
+          "value": "15",
+          "label": "15 km"
+        },
+        {
+          "value": "25",
+          "label": "25 km"
+        },
+        {
+          "value": "35",
+          "label": "35 km"
+        },
+        {
+          "value": "50",
+          "label": "50 km"
+        },
+        {
+          "value": "80",
+          "label": "80 km"
+        }
+      ]
+    },
+    {
+      "name": "include_moored",
+      "type": "boolean",
+      "label": "Include vessels moored or at anchor",
+      "default": true
+    },
+    {
+      "name": "order",
+      "type": "select",
+      "label": "Order",
+      "default": "nearest",
+      "choices": [
+        {
+          "value": "nearest",
+          "label": "Nearest first"
+        },
+        {
+          "value": "largest",
+          "label": "Largest first"
+        },
+        {
+          "value": "fastest",
+          "label": "Fastest first"
+        },
+        {
+          "value": "moving",
+          "label": "Under way first"
+        }
+      ]
+    },
+    {
+      "name": "strip",
+      "type": "number",
+      "label": "More vessels along the strip",
+      "default": 5,
+      "help": "0 to 8 after the nearest."
+    },
+    {
+      "name": "photo_fit",
+      "type": "select",
+      "label": "Photograph",
+      "default": "cover",
+      "choices": [
+        {
+          "value": "cover",
+          "label": "Fills the page"
+        },
+        {
+          "value": "contain",
+          "label": "Fits inside the page"
+        }
+      ]
+    },
+    {
+      "name": "labels",
+      "type": "multiselect",
+      "label": "Label lines",
+      "default": [
+        "dest",
+        "speed",
+        "distance",
+        "flag"
+      ],
+      "help": "In this order, under or beside each vessel.",
+      "choices": [
+        {
+          "value": "type",
+          "label": "Type"
+        },
+        {
+          "value": "flag",
+          "label": "Flag"
+        },
+        {
+          "value": "dest",
+          "label": "Destination and ETA"
+        },
+        {
+          "value": "speed",
+          "label": "Speed"
+        },
+        {
+          "value": "distance",
+          "label": "Distance and bearing"
+        },
+        {
+          "value": "course",
+          "label": "Course"
+        },
+        {
+          "value": "status",
+          "label": "Navigational status"
+        },
+        {
+          "value": "length",
+          "label": "Length and beam"
+        },
+        {
+          "value": "imo",
+          "label": "IMO number"
+        }
+      ]
+    },
+    {
+      "name": "title",
+      "type": "string",
+      "label": "Title",
+      "default": "",
+      "help": "Blank uses the place."
+    },
+    {
+      "name": "header",
+      "type": "select",
+      "label": "Title line",
+      "default": "top",
+      "choices": [
+        {
+          "value": "top",
+          "label": "Above the page"
+        },
+        {
+          "value": "bottom",
+          "label": "Below the page"
+        },
+        {
+          "value": "hidden",
+          "label": "Hidden"
+        }
+      ]
+    },
+    {
+      "name": "footer",
+      "type": "select",
+      "label": "Foot of the page",
+      "default": "show",
+      "choices": [
+        {
+          "value": "show",
+          "label": "Status and credits"
+        },
+        {
+          "value": "credits",
+          "label": "Credits only"
+        },
+        {
+          "value": "hide",
+          "label": "Nothing"
+        }
+      ]
+    },
+    {
+      "name": "paper",
+      "type": "select",
+      "label": "Paper",
+      "default": "cream",
+      "choices": [
+        {
+          "value": "cream",
+          "label": "Cream"
+        },
+        {
+          "value": "white",
+          "label": "White"
+        },
+        {
+          "value": "aged",
+          "label": "Aged"
+        },
+        {
+          "value": "blueprint",
+          "label": "Blueprint: pale ink on blue"
+        },
+        {
+          "value": "sea",
+          "label": "A soft sea wash"
+        }
+      ]
+    },
+    {
+      "name": "panel",
+      "type": "select",
+      "label": "Panel",
+      "default": "colour",
+      "choices": [
+        {
+          "value": "colour",
+          "label": "Colour"
+        },
+        {
+          "value": "gray16",
+          "label": "16 greys"
+        },
+        {
+          "value": "gray4",
+          "label": "4 greys"
+        },
+        {
+          "value": "mono",
+          "label": "Black and white"
+        }
+      ],
+      "help": "What the panel can show. Pictures are converted and contrast-stretched to match."
+    },
+    {
+      "name": "text_size",
+      "type": "select",
+      "label": "Text size",
+      "default": "100",
+      "choices": [
+        {
+          "value": "60",
+          "label": "60%"
+        },
+        {
+          "value": "80",
+          "label": "80%"
+        },
+        {
+          "value": "100",
+          "label": "100%"
+        },
+        {
+          "value": "125",
+          "label": "125%"
+        },
+        {
+          "value": "150",
+          "label": "150%"
+        }
+      ]
+    },
+    {
+      "name": "font",
+      "type": "select",
+      "label": "Type",
+      "default": "fell",
+      "choices": [
+        {
+          "value": "fell",
+          "label": "IM Fell English: the old plate"
+        },
+        {
+          "value": "archivo",
+          "label": "Archivo Narrow: clean and plain"
+        },
+        {
+          "value": "georgia",
+          "label": "Georgia: a modern serif"
+        },
+        {
+          "value": "page",
+          "label": "The dashboard's own font"
+        }
+      ],
+      "help": "The face the page is set in. The dashboard's own font follows the page's font picker."
+    }
+  ],
+  "data_schema": {
+    "fields": [
+      {
+        "name": "title",
+        "type": "str",
+        "label": "Title"
+      },
+      {
+        "name": "afloat",
+        "type": "num",
+        "label": "Vessels within reach"
+      },
+      {
+        "name": "vessels",
+        "type": "arr",
+        "label": "Vessels shown"
+      }
+    ]
+  }
+}
