@@ -658,7 +658,11 @@ def listener_note(source: str, api_key: str, lat: float, lon: float, radius_km: 
 # ----------------------------------------------------------------------
 def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str]:
     """{src, by, lic, link, w, h} for a photograph of the ship on Wikimedia
-    Commons (Category:IMO <number>), kept a month; {} when there is none."""
+    Commons (Category:IMO <number>, which holds the ship's own category), kept
+    a month; {} when there is none. Among the category's files the ship
+    spotters' uploads (named with the IMO number) come first, then files
+    named for the ship, never a plaque, a cabin, a model or a view from on
+    board; a landscape picture of a good size wins among those."""
     imo = re.sub(r"\D", "", str(imo or ""))
     if not imo or imo == "0":
         return {}
@@ -666,16 +670,16 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
     got = N.read_json(cache, None)
     if isinstance(got, dict) and time.time() - _num(got.get("at")) < (PHOTO_S if got.get("photo") else 7 * 86400):
         return got.get("photo") or {}
-    # the IMO category holds the ship's own category (Ever Given (ship, 2018)); the photographs are in that
     data, err = _members(f"Category:IMO {imo}", ua)
     photo: dict[str, str] = {}
     titles, subcats = _files_and_subcats(data)
     if not titles and subcats:
         ship_cat = next((c for c in subcats if "(ship" in c.lower()), subcats[0])
-        deeper, _err = _members(ship_cat, ua)
+        deeper, _err = _members(ship_cat, ua, limit=120)
         titles, _more = _files_and_subcats(deeper)
-    if titles:
-        q = urllib.parse.urlencode({"action": "query", "format": "json", "titles": "|".join(titles[:8]), "prop": "imageinfo", "iiprop": "url|extmetadata|size", "iiurlwidth": "1400"})
+    ranked = sorted(titles, key=lambda ti: -title_score(ti, imo, name))[:12]
+    if ranked:
+        q = urllib.parse.urlencode({"action": "query", "format": "json", "titles": "|".join(ranked), "prop": "imageinfo", "iiprop": "url|extmetadata|size", "iiurlwidth": "1400"})
         info, err2 = N.get_json(f"{COMMONS}?{q}", ua=ua, timeout=4)
         best: tuple[float, dict[str, str]] | None = None
         with contextlib.suppress(KeyError, TypeError, AttributeError):
@@ -687,17 +691,8 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
                 ex = ii.get("extmetadata") or {}
                 by = _plain(str((ex.get("Artist") or {}).get("value") or ""))
                 lic = str((ex.get("LicenseShortName") or {}).get("value") or "")
-                score = min(w / max(h, 1), 2.2) + (0.5 if 1.2 <= w / max(h, 1) <= 1.9 else 0)
-                title = str(page.get("title") or "").lower()
-                # a file named for the ship or her number over a harbour view she happens to be in;
-                # never a plaque, a cabin, a model or a plan
-                if imo in title:
-                    score += 2.0
-                elif any(len(wd) > 3 and wd in title for wd in str(name or "").lower().split()):
-                    score += 1.0
-                if any(bad in title for bad in NOT_A_PORTRAIT):
-                    score -= 3.0
-                score += min(w, 4000) / 8000
+                ratio = w / max(h, 1)
+                score = title_score(str(page.get("title") or ""), imo, name) + min(ratio, 2.2) + (0.5 if 1.2 <= ratio <= 1.9 else 0) + min(w, 4000) / 8000
                 cand = {"src": str(ii["thumburl"]), "by": by[:80], "lic": lic[:40], "link": str(ii.get("descriptionurl") or ""), "w": str(int(w)), "h": str(int(h))}
                 if best is None or score > best[0]:
                     best = (score, cand)
@@ -713,13 +708,37 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
 NOT_A_PORTRAIT = (
     "plaque", "plate", "interior", "cabin", "deck", "bridge", "restaurant", "lobby", "atrium", "pool", "lounge", "theatre", "theater",
     "model", "logo", "map", "plan", "drawing", "diagram", "engine", "propeller", "anchor", "bell", "funnel", "detail", "crew", "captain",
-    "menu", "ticket", "poster", "stamp", "crop", "closeup", "close-up", "inside", "stair", "corridor", "suite", "room",
-    "on board", "aboard", "onboard", "from the deck", "view from", "seen from", "wake of",
+    "menu", "ticket", "poster", "stamp", "crop", "closeup", "close-up", "inside", "stair", "corridor", "suite", "room", "on board", "aboard",
+    "onboard", "from the deck", "view from", "seen from", "wake of", "visit", "courtesy", "ceremony", "christening", "naming", "launch",
+    "lifeboat", "gangway", "passenger", "people", "tour", "night", "fireworks", "sign", "bow of", "stern of", "hull of", "part of",
 )
 
 
-def _members(category: str, ua: str) -> tuple[Any, str | None]:
-    q = urllib.parse.urlencode({"action": "query", "format": "json", "list": "categorymembers", "cmtitle": category, "cmtype": "file|subcat", "cmlimit": "20"})
+def title_score(title: str, imo: str, name: str = "") -> float:
+    """How likely a Commons file, by its name alone, is a portrait of the ship:
+    the spotters' uploads carry the IMO number; a file named for the ship with
+    a year or a port is next; the words of a plaque, a cabin or a visit count
+    against it."""
+    t = str(title or "").lower()
+    score = 0.0
+    if imo and imo in t:
+        score += 2.0
+    words = [wd for wd in str(name or "").lower().split() if len(wd) > 2]
+    if words and all(wd in t for wd in words):
+        score += 1.0
+    elif any(len(wd) > 3 and wd in t for wd in words):
+        score += 0.4
+    if re.search(r"\b(19|20)\d\d\b", t):
+        score += 0.3
+    if re.search(r"\(\d{8,}\)", t):
+        score -= 0.5  # a Flickr id: a holiday snap more often than a portrait
+    if any(bad in t for bad in NOT_A_PORTRAIT):
+        score -= 3.0
+    return score
+
+
+def _members(category: str, ua: str, limit: int = 20) -> tuple[Any, str | None]:
+    q = urllib.parse.urlencode({"action": "query", "format": "json", "list": "categorymembers", "cmtitle": category, "cmtype": "file|subcat", "cmlimit": str(limit)})
     return N.get_json(f"{COMMONS}?{q}", ua=ua, timeout=4)
 
 
