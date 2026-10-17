@@ -95,6 +95,7 @@ def offline(monkeypatch):
             return json.dumps({"query": {"pages": {
                 "1": {"imageinfo": [{"thumburl": "https://upload.wikimedia.org/elba_wide.jpg", "width": 1800, "height": 1200, "descriptionurl": "https://commons.wikimedia.org/wiki/File:Maersk_Elba_2019.jpg", "extmetadata": {"Artist": {"value": "<a href=\"x\">A. Spotter</a>"}, "LicenseShortName": {"value": "CC BY-SA 4.0"}}}]},
                 "2": {"imageinfo": [{"thumburl": "https://upload.wikimedia.org/elba_tall.jpg", "width": 800, "height": 1600, "descriptionurl": "", "extmetadata": {}}]},
+                "3": {"title": "File:Maersk Elba builder's plaque.jpg", "imageinfo": [{"thumburl": "https://upload.wikimedia.org/elba_plaque.jpg", "width": 2400, "height": 1600, "descriptionurl": "", "extmetadata": {}}]},
             }}}).encode(), None
         if "upload.wikimedia.org" in url:
             return _jpeg(), None
@@ -301,8 +302,8 @@ def test_the_websocket_frames(monkeypatch):
 
 
 def test_commons_photo_by_imo(tmp_path, offline):
-    p = A.photo_of("9458054", tmp_path, A.user_agent("tester@example.com"))
-    assert p["src"].endswith("elba_wide.jpg") and p["by"] == "A. Spotter" and p["lic"] == "CC BY-SA 4.0", "the landscape one, the artist's HTML stripped"
+    p = A.photo_of("9458054", tmp_path, A.user_agent("tester@example.com"), "Maersk Elba")
+    assert p["src"].endswith("elba_wide.jpg") and p["by"] == "A. Spotter" and p["lic"] == "CC BY-SA 4.0", "the landscape one, not the plaque, the artist's HTML stripped"
     ua = A.user_agent("")
     assert A.photo_of("9000001", tmp_path, ua) == {} and A.photo_of("", tmp_path, ua) == {}
     assert (tmp_path / "photos" / "imo_9458054.json").exists()

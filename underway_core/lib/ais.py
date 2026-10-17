@@ -689,9 +689,15 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
                 lic = str((ex.get("LicenseShortName") or {}).get("value") or "")
                 score = min(w / max(h, 1), 2.2) + (0.5 if 1.2 <= w / max(h, 1) <= 1.9 else 0)
                 title = str(page.get("title") or "").lower()
-                # a file named for the ship or her number over a harbour view she happens to be in
-                if imo in title or any(len(wd) > 3 and wd in title for wd in str(name or "").lower().split()):
-                    score += 1.5
+                # a file named for the ship or her number over a harbour view she happens to be in;
+                # never a plaque, a cabin, a model or a plan
+                if imo in title:
+                    score += 2.0
+                elif any(len(wd) > 3 and wd in title for wd in str(name or "").lower().split()):
+                    score += 1.0
+                if any(bad in title for bad in NOT_A_PORTRAIT):
+                    score -= 3.0
+                score += min(w, 4000) / 8000
                 cand = {"src": str(ii["thumburl"]), "by": by[:80], "lic": lic[:40], "link": str(ii.get("descriptionurl") or ""), "w": str(int(w)), "h": str(int(h))}
                 if best is None or score > best[0]:
                     best = (score, cand)
@@ -702,6 +708,14 @@ def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str
     if data is not None:
         N.write(cache, json.dumps({"at": time.time(), "photo": photo}).encode())
     return photo
+
+
+NOT_A_PORTRAIT = (
+    "plaque", "plate", "interior", "cabin", "deck", "bridge", "restaurant", "lobby", "atrium", "pool", "lounge", "theatre", "theater",
+    "model", "logo", "map", "plan", "drawing", "diagram", "engine", "propeller", "anchor", "bell", "funnel", "detail", "crew", "captain",
+    "menu", "ticket", "poster", "stamp", "crop", "closeup", "close-up", "inside", "stair", "corridor", "suite", "room",
+    "on board", "aboard", "onboard", "from the deck", "view from", "seen from", "wake of",
+)
 
 
 def _members(category: str, ua: str) -> tuple[Any, str | None]:
