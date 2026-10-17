@@ -164,7 +164,7 @@ RECEIVER = {**PORT_MELBOURNE, "source": "receiver", "receiver_url": "http://pi.l
 def test_manifests_and_client_files():
     for wid in ("underway_core", "underway_photo", "underway_plate", "underway_fleet", "underway_scene"):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
-        assert m["version"] == "0.1.0" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
+        assert m["version"] == "0.1.1" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
         if m["kind"] == "widget":
             assert m["render"]["warm_ahead_s"] == 150
             assert (ROOT / wid / "client.js").exists()
@@ -396,6 +396,7 @@ def test_paintings_from_photographs_and_from_particulars(tmp_path, offline, stre
     r = fleet.fetch({**PORT_MELBOURNE, "pictures": "paintings", "style": "linocut", "count": "4"}, SETTINGS, ctx=_ctx(tmp_path))
     assert all(v["pic"] and v["pic"]["kind"] == "painting" for v in r["vessels"])
     assert all(not v["pic"]["whole"] for v in r["vessels"]), "cut out"
+    assert all(v["pic"]["impression"] == (not v["imo"]) for v in r["vessels"]), "a vessel without a photograph is marked an impression"
     assert any("from her particulars" in v["pic"]["credit"] for v in r["vessels"]) and any("Wikimedia Commons" in v["pic"]["credit"] for v in r["vessels"])
     assert len(prompts) == 4, "painted once; nothing asked again"
     keys = sorted(p.stem for p in P.gen_dir(tmp_path).glob("*.jpg"))

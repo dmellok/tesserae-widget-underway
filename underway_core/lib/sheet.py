@@ -487,7 +487,9 @@ def fetch(
 
     def enrich(r: dict[str, Any]) -> dict[str, Any]:
         got: dict[str, Any] = {
-            "photo": A.photo_of(r["imo"], data_dir, ua, r.get("name") or "") if r.get("imo") else {}
+            "photo": A.photo_of(r["imo"], data_dir, ua, r.get("name") or "")
+            if r.get("imo")
+            else {}
         }
         if (wants_photo or pictures == "paintings") and got["photo"].get("src"):
             N.cached_get(data_dir, got["photo"]["src"], ua=ua)
@@ -613,6 +615,10 @@ def fetch(
             got = art.request(key, payload, title=f"{shown_name(r)}, {r['typ']}")
             if got.ready:
                 pic = P.picture(art, key, px, panel, whole_)
+                if pic:
+                    pic[
+                        "impression"
+                    ] = not has_photo  # painted from her particulars, not a photograph
                 if pic and pic.get("credit"):
                     credits.append(pic["credit"])
             elif got.state == "failed":

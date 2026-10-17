@@ -75,6 +75,12 @@ function lines(a) {
 
 const SIL_URL = (cls) => 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="400" height="400" fill="#7a7a7a"><path d="${SIL[cls] || SIL.other}"/></svg>`);
 
+const IMPRESSION = 'an impression from her particulars, not from a photograph';
+
+function impression(a, cls = 'uw-imp') {
+  return a.pic && a.pic.src && a.pic.impression ? `<span class="${cls}" title="${IMPRESSION}">impression</span>` : '';
+}
+
 function picture(a, cls = '') {
   if (a.pic && a.pic.src) return `<img class="uw-pic ${cls}${a.pic.whole ? ' whole' : ' cut'}" src="${a.pic.src}" alt="${esc(a.typ)}" decoding="sync">`;
   return `<span class="uw-pic uw-nopic ${cls}">${sil(a.cls)}</span>`;
@@ -133,7 +139,7 @@ function modernPage(d) {
   const vars = `--p:${c.p};--s:${c.s};--t:${c.t};--sh:${c.sh};--th:${c.th};--pink:${c.ink};--sink:${c.ink2}`;
   const top = d.header === 'hidden' ? '' : `${esc(d.title)} · ${esc(d.time)}`;
   const when = `${esc(d.time)} · ${esc(d.date)}`;
-  const credit = `${esc(a.typ)}${a.flag ? ` · ${esc(a.flag)}` : ''}${a.pic && a.pic.credit && d.footer !== 'hide' ? ` · ${esc(a.pic.credit)}` : ''}`;
+  const credit = `${esc(a.typ)}${a.flag ? ` · ${esc(a.flag)}` : ''}${a.pic && a.pic.impression ? ' · an impression' : ''}${a.pic && a.pic.credit && d.footer !== 'hide' ? ` · ${esc(a.pic.credit)}` : ''}`;
   const typ = `${esc(a.typ)}${a.flag ? ` · <span class="nb">${esc(a.flag)}</span>` : ''}${a.imo ? ` · IMO ${esc(a.imo)}` : ''}`;
   const st = statRows(a);
   const contact = d.visitor && d.visitor.pic ? `<figure class="vis md-vis"><img src="${d.visitor.pic.src}" alt="" decoding="sync"><figcaption>${esc(d.visitor.typ)} · ${esc(d.visitor.lines[1])}</figcaption></figure>` : '';
@@ -169,7 +175,7 @@ function platePage(d) {
   ].filter((r) => r[1]);
   const portrait = (d.cell_h || 1) > (d.cell_w || 1);
   const contact = d.visitor && d.visitor.pic ? `<figure class="vis"><img src="${d.visitor.pic.src}" alt="" decoding="sync"><figcaption>${esc(d.visitor.typ)} · ${esc(d.visitor.lines[1])}</figcaption></figure>` : '';
-  return `${head(d)}<div class="pl${portrait ? ' portrait' : ''}"><div class="pl-plate"><div class="pl-frame"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>${contact}${picture(a, 'pl-pic')}<div class="pl-fig">Fig. 1. ${esc(a.shown_name)}, ${esc(a.typ)}${a.pic && a.pic.credit ? `, ${esc(a.pic.credit)}` : ''}</div></div><div class="pl-note"><div class="pl-cs">${esc(a.shown_name)}</div><div class="pl-typ">${esc(a.typ)}${a.imo ? ` <i>· IMO ${esc(a.imo)}</i>` : ''}</div><dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl><p class="pl-about">${esc(a.about)}</p></div></div>${head(d, 'bottom')}${foot(d)}`;
+  return `${head(d)}<div class="pl${portrait ? ' portrait' : ''}"><div class="pl-plate"><div class="pl-frame"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>${contact}${picture(a, 'pl-pic')}${impression(a, 'uw-imp pl-imp')}<div class="pl-fig">Fig. 1. ${esc(a.shown_name)}, ${esc(a.typ)}${a.pic && a.pic.impression ? ', an impression' : ''}${a.pic && a.pic.credit ? `, ${esc(a.pic.credit)}` : ''}</div></div><div class="pl-note"><div class="pl-cs">${esc(a.shown_name)}</div><div class="pl-typ">${esc(a.typ)}${a.imo ? ` <i>· IMO ${esc(a.imo)}</i>` : ''}</div><dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl><p class="pl-about">${esc(a.about)}</p></div></div>${head(d, 'bottom')}${foot(d)}`;
 }
 
 /* The fleet: every vessel painted and cut out, sized by her length, packed; or, with
@@ -177,7 +183,7 @@ function platePage(d) {
 function fleetPage(d) {
   const n = d.vessels.length;
   const cols = n <= 2 ? n : n <= 4 ? 2 : n <= 6 ? 3 : 4;
-  return `${head(d)}<div class="lg-grid" style="--cols:${cols}">${d.vessels.map((a) => `<article class="lg-card">${a.pic && a.pic.src ? `<div class="lg-pic${a.pic.whole ? '' : ' lg-cut'}" style="background-image:url('${a.pic.src}')"></div>` : `<div class="lg-pic lg-none">${sil(a.cls)}</div>`}<div class="lg-row"><b>${esc(a.shown_name)}</b>${(d.labels || []).includes('flag') ? '' : flag(a, 'lg-flag')}</div><div class="lg-lines">${lines(a)}</div></article>`).join('')}</div>${head(d, 'bottom')}${foot(d)}`;
+  return `${head(d)}<div class="lg-grid" style="--cols:${cols}">${d.vessels.map((a) => `<article class="lg-card">${a.pic && a.pic.src ? `<div class="lg-pic${a.pic.whole ? '' : ' lg-cut'}" style="background-image:url('${a.pic.src}')"></div>` : `<div class="lg-pic lg-none">${sil(a.cls)}</div>`}<div class="lg-row"><b>${esc(a.shown_name)}${impression(a, 'uw-imp lg-imp')}</b>${(d.labels || []).includes('flag') ? '' : flag(a, 'lg-flag')}</div><div class="lg-lines">${lines(a)}</div></article>`).join('')}</div>${head(d, 'bottom')}${foot(d)}`;
 }
 
 async function packFleet(d) {
@@ -189,7 +195,7 @@ async function packFleet(d) {
     return {
       name: a.shown_name, sci: a.mmsi || a.shown_name, src, cut: whole ? null : src, on_paper: false, classic: false, whole, neutral: false, no_flip: true,
       factor: Math.pow(Math.max(8, a.len || 40) / 120, 0.4), aspect: pic.aspect > 0 ? pic.aspect : 3, paper: null,
-      lines: [a.shown_name, ...(a.lines || [])],
+      lines: [a.shown_name + (pic.impression ? ' (impression)' : ''), ...(a.lines || [])],
     };
   });
   const label = Math.max(0.017, 13 / h) * ((Number(d.text_size) || 100) / 100);
@@ -215,7 +221,7 @@ function scenePage(d) {
   const art = a.pic && a.pic.src ? `<div class="sc-bg" style="background-image:url('${a.pic.src}');background-size:${a.pic.whole ? 'cover' : 'contain'}"></div>` : `<div class="sc-bg sc-none">${sil(a.cls)}</div>`;
   const top = d.header === 'hidden' ? '' : `<div class="sc-top"><span>${esc(d.title)} · ${esc(d.area)}</span><span>${esc(d.time)} · ${esc(d.date)}</span></div>`;
   const contact = d.visitor && d.visitor.pic ? `<figure class="vis sc-vis"><img src="${d.visitor.pic.src}" alt="" decoding="sync"><figcaption>${esc(d.visitor.typ)} · ${esc(d.visitor.lines[1])}</figcaption></figure>` : '';
-  return `${art}${contact}${top}<div class="sc-main">${flag(a, 'sc-flag')}<div class="sc-cs">${esc(a.shown_name)}</div><div class="sc-typ">${sub(a)}</div><div class="sc-r">${lines(a).replace(/<\/span><span/g, '</span> · <span')}</div></div>${foot(d).replace('class="credit"', 'class="credit sc-credit"')}`;
+  return `${art}${contact}${top}<div class="sc-main">${flag(a, 'sc-flag')}<div class="sc-cs">${esc(a.shown_name)}</div><div class="sc-typ">${sub(a)}${a.pic && a.pic.impression ? ' <span>· an impression</span>' : ''}</div><div class="sc-r">${lines(a).replace(/<\/span><span/g, '</span> · <span')}</div></div>${foot(d).replace('class="credit"', 'class="credit sc-credit"')}`;
 }
 
 export async function render(shadow, ctx, widget) {
@@ -280,6 +286,9 @@ export async function render(shadow, ctx, widget) {
       .msg { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 1.4cqmin; padding: 4cqmin 6cqmin; text-align: center; }
       .msg-t { font-family: var(--sc); font-size: 5cqmin; letter-spacing: .06em; } .msg-b { font-size: 3.4cqmin; } .msg-h { font-size: 2.6cqmin; font-style: italic; opacity: .75; }
       .uw-nopic { position: relative; display: block; overflow: hidden; }
+      /* the mark on a painting made from her particulars alone */
+      .uw-imp { font-family: var(--sans); font-size: calc(var(--ts) * 1.9cqmin); letter-spacing: .14em; text-transform: uppercase; border: 1px solid var(--ink); padding: .25em .7em; opacity: .75; }
+      .pl-imp { position: absolute; left: 2.6cqmin; top: 2.6cqmin; } .lg-imp { margin-left: .6em; font-size: calc(var(--ts) * 1.4cqmin); padding: .15em .5em; vertical-align: middle; letter-spacing: .1em; }
       .uw-sil { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .3; }
       .uw-flag { font-family: var(--sc); letter-spacing: .1em; font-size: .8em; }
       .ln { display: block; }
