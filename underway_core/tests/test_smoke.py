@@ -450,7 +450,7 @@ def test_manifests_and_client_files():
     ):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
         assert (
-            m["version"] == "0.3.0"
+            m["version"] == "0.4.0"
             and m["tesserae_compat"] == "1.x"
             and m["tesserae_min"] == "0.463.0"
         )
@@ -1560,3 +1560,44 @@ def test_only_vessels_with_a_photograph_are_painted(tmp_path, offline, stream):
         "photographed first and painted; the rest silhouettes"
     )
     assert len(prompts) == 2
+
+
+def test_the_catalogue_counts_passes(tmp_path, offline):
+    SG = S.SG
+    a, b = (
+        {
+            "imo": "9458054",
+            "mmsi": "219018271",
+            "name": "Maersk Elba",
+            "typ": "Cargo ship",
+        },
+        {"imo": "", "mmsi": "503012345", "name": "Svitzer Eureka", "typ": "Tug"},
+    )
+    led = SG.ledger(tmp_path / "unit")
+    led.note([a, b], S.SIGHT_ID, S.SIGHT_NAME, now=1000)
+    led.note([a], S.SIGHT_ID, S.SIGHT_NAME, now=1600)
+    assert led.seen[S.SIGHT_ID(a)]["v"] == 1, (
+        "seen again within half an hour is the same pass"
+    )
+    led.note([a], S.SIGHT_ID, S.SIGHT_NAME, now=4000)
+    st = SG.stats(tmp_path / "unit", lambda rid: rid == S.SIGHT_ID(a), now=4000)
+    assert (st["airframes"], st["passes"], st["once"], st["twice"], st["painted"]) == (
+        2,
+        3,
+        1,
+        1,
+        1,
+    )
+    assert (
+        st["painted_passes_share"] == round(2 / 3, 3)
+        and st["coverage"] == round(1 - 1 / 3, 3)
+        and st["estimate"] == 2
+    )
+    assert st["top"][0]["passes"] == 2 and st["top"][0]["painted"] is True
+    led.save(now=4000)
+    again = SG.Ledger(tmp_path / "unit" / SG.FILE)
+    assert again.seen[S.SIGHT_ID(a)]["v"] == 2, "kept across a restart"
+    # a render counts what it saw, and the paintings page reads it
+    fleet.fetch({**RECEIVER, "pictures": "photos"}, SETTINGS, ctx=_ctx(tmp_path))
+    st = core.sightings_context(tmp_path)["s"]
+    assert st["airframes"] >= 1 and st["passes"] >= 1 and st["painted"] == 0
