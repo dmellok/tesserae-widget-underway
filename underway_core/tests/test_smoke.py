@@ -11,6 +11,7 @@ import os
 import struct
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 
 import pytest
@@ -74,11 +75,28 @@ def _jpeg(w=600, h=400, blob=True, paper=(255, 255, 255)) -> bytes:
     return out.getvalue()
 
 
+class _Prompts:
+    """The prompts fal.ai got (live, by reference) and the Flickr searches made."""
+
+    def __init__(self, prompts, flickr):
+        self._p, self.flickr = prompts, flickr
+
+    def __len__(self):
+        return len(self._p)
+
+    def __iter__(self):
+        return iter(self._p)
+
+    def __getitem__(self, i):
+        return self._p[i]
+
+
 @pytest.fixture
 def offline(monkeypatch):
     """Every call on the network, answered here; the prompts fal.ai got."""
     prompts: list[dict] = []
     uas: list[str] = []
+    flickr_calls: list[dict] = []
 
     def fake_http(url, token="", accept="application/json", *, auth_scheme="Bearer", body=None, timeout=10, detail=False, ua=""):
         uas.append(ua)
@@ -97,8 +115,27 @@ def offline(monkeypatch):
                 "2": {"imageinfo": [{"thumburl": "https://upload.wikimedia.org/elba_tall.jpg", "width": 800, "height": 1600, "descriptionurl": "", "extmetadata": {}}]},
                 "3": {"title": "File:Maersk Elba builder's plaque.jpg", "imageinfo": [{"thumburl": "https://upload.wikimedia.org/elba_plaque.jpg", "width": 2400, "height": 1600, "descriptionurl": "", "extmetadata": {}}]},
             }}}).encode(), None
-        if "upload.wikimedia.org" in url:
+        if "upload.wikimedia.org" in url or "staticflickr.com" in url:
             return _jpeg(), None
+        if "api.flickr.com" in url:
+            q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
+            flickr_calls.append(q)
+            if q["api_key"] != "fk":
+                return json.dumps({"stat": "fail", "code": 100, "message": "Invalid API Key (Key has invalid format)"}).encode(), None
+            lic = {int(x) for x in q["license"].split(",")}
+            found = []
+            text = q["text"].upper()
+            if text == '"SVITZER EUREKA"':
+                found = [
+                    {"id": "501", "owner": "11@N02", "ownername": "Port Spotter", "title": "Svitzer Eureka", "license": "2", "tags": "tug melbourne svitzereureka", "description": {"_content": "Svitzer's tug off Williamstown"}, "url_l": "https://live.staticflickr.com/501_b.jpg", "width_l": 1024, "height_l": 683},
+                    {"id": "502", "owner": "12@N02", "ownername": "Tower Fan", "title": "Eureka Tower at dusk", "license": "4", "tags": "melbourne skyline", "description": {"_content": ""}, "url_l": "https://live.staticflickr.com/502_b.jpg", "width_l": 1024, "height_l": 768},
+                ]
+            elif text == '"LADY ANNE"':
+                found = [{"id": "503", "owner": "13@N02", "ownername": "A. Painter", "title": "Lady Anne", "license": "4", "tags": "portrait oil", "description": {"_content": "a portrait"}, "url_l": "https://live.staticflickr.com/503_b.jpg", "width_l": 1024, "height_l": 1400}]
+            elif text == "IMO 9312345":
+                found = [{"id": "504", "owner": "14@N02", "ownername": "Tanker Watch", "title": "NORDIC AURORA - IMO 9312345", "license": "5", "tags": "tanker imo9312345", "description": {"_content": ""}, "url_l": "https://live.staticflickr.com/504_b.jpg", "width_l": 1024, "height_l": 600}]
+            found = [f for f in found if int(f["license"]) in lic]
+            return json.dumps({"stat": "ok", "photos": {"page": 1, "photo": found}}).encode(), None
         if "open-meteo" in url:
             return json.dumps({"current": {"weather_code": 61, "cloud_cover": 90, "is_day": 1, "wind_speed_10m": 20}, "daily": {"sunrise": ["2026-10-17T06:30"], "sunset": ["2026-10-17T19:40"]}}).encode(), None
         return None, "unreachable"
@@ -113,7 +150,8 @@ def offline(monkeypatch):
 
     monkeypatch.setattr(fal_mod, "_http_json", fake_fal)
     monkeypatch.setattr(fal_mod, "_download", lambda url, timeout=60.0: _jpeg(paper=(252, 250, 246)))
-    yield prompts, uas
+    prompts_seen = _Prompts(prompts, flickr_calls)
+    yield prompts_seen, uas
     P.ART.stop_all(Path("."))
     A.stop_listeners()
 
@@ -165,7 +203,7 @@ RECEIVER = {**PORT_MELBOURNE, "source": "receiver", "receiver_url": "http://pi.l
 def test_manifests_and_client_files():
     for wid in ("underway_core", "underway_photo", "underway_plate", "underway_fleet", "underway_scene"):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
-        assert m["version"] == "0.1.2" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
+        assert m["version"] == "0.2.0" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
         if m["kind"] == "widget":
             assert m["render"]["warm_ahead_s"] == 150
             assert (ROOT / wid / "client.js").exists()
@@ -361,20 +399,26 @@ def test_fleet_from_the_stream_with_filters(tmp_path, offline, stream):
     assert r["state"] == "ok" and r["attribution"] == "positions from aisstream.io"
     assert [v["name"] for v in r["vessels"]] == ["Maersk Elba", "Svitzer Eureka", "Lady Anne"], "the anchored tanker left out, largest first"
     r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos", "order": "fastest", "count": 2}, SETTINGS, ctx=_ctx(tmp_path))
-    assert [v["name"] for v in r["vessels"]] == ["Maersk Elba", "Svitzer Eureka"] and r["afloat"] == 4
+    assert [v["name"] for v in r["vessels"]] == ["Maersk Elba", "Nordic Aurora"] and r["afloat"] == 4, "photographed first: the anchored tanker with a photograph beats the tug without one"
+    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos", "order": "fastest", "count": 2, "ranking": "order"}, SETTINGS, ctx=_ctx(tmp_path))
+    assert [v["name"] for v in r["vessels"]] == ["Maersk Elba", "Svitzer Eureka"], "the order alone when asked"
     r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos", "radius_km": "5"}, SETTINGS, ctx=_ctx(tmp_path))
-    assert [v["name"] for v in r["vessels"]] == ["Svitzer Eureka", "Maersk Elba", "Lady Anne"]
+    assert [v["name"] for v in r["vessels"]] == ["Maersk Elba", "Svitzer Eureka", "Lady Anne"], "photographed first, then the order"
+    r = fleet.fetch({**RECEIVER, "pictures": "photos", "ranking": "order"}, SETTINGS, ctx=_ctx(tmp_path))
+    assert [v["name"] for v in r["vessels"]][:2] == ["Svitzer Eureka", "Maersk Elba"], "the order alone when asked"
 
 
 def test_photo_plate_and_scene_pages(tmp_path, offline, stream):
     r = photo.fetch({**PORT_MELBOURNE, "strip": "2"}, SETTINGS, ctx=_ctx(tmp_path))
     assert r["state"] == "ok" and r["widget"] == "photo" and len(r["vessels"]) == 3
+    assert r["vessels"][0]["shown_name"] == "Maersk Elba", "the nearest photographed vessel leads the photo page"
+    r = photo.fetch({**PORT_MELBOURNE, "strip": "2", "ranking": "order"}, SETTINGS, ctx=_ctx(tmp_path))
     assert r["vessels"][0]["shown_name"] == "Svitzer Eureka"
     r = plate.fetch({**PORT_MELBOURNE, "pictures": "photos", "order": "largest", "look": "tiles", "colours": "type"}, SETTINGS, ctx=_ctx(tmp_path))
     assert r["widget"] == "plate" and r["look"] == "tiles" and r["colours"] == "type" and len(r["vessels"]) == 1
     v = r["vessels"][0]
     assert v["shown_name"] == "Maersk Elba" and v["pic"]["kind"] == "photo" and v["dest_text"].startswith("to AU MEL, ETA")
-    r = scene.fetch({**PORT_MELBOURNE, "pictures": "photos"}, SETTINGS, ctx=_ctx(tmp_path))
+    r = scene.fetch({**PORT_MELBOURNE, "pictures": "photos", "ranking": "order"}, SETTINGS, ctx=_ctx(tmp_path))
     assert r["widget"] == "scene" and r["backdrop"] == "sea" and r["vessels"][0]["shown_name"] == "Svitzer Eureka"
     r = fleet.fetch({}, SETTINGS, ctx=_ctx(tmp_path))
     assert r["state"] == "error" and "Set a place" in r["error"]
@@ -453,7 +497,7 @@ def test_core_and_prompt_pieces(tmp_path):
     assert core.settings_of(None) == {}
     assert P.key_for("9458054", "poster") == "9458054--poster--p1"
     assert P.key_for("9458054", "poster", "sunset", "quarter", "flux_kontext", fidelity="free") == "9458054--poster--p1--free--bd_sunset--v_quarter--m_flux_kontext"
-    assert P.key_for("503999999", "poster", photo=False, view="stern") == "503999999--poster--p1--words--v_stern"
+    assert P.key_for("503999999", "poster", photo=False, view="stern") == "503999999--poster--p1--words2--v_stern"
     how = P.build_how({"build_medium": "woodblock", "build_period": "dutch", "build_mood": "heroic", "build_extra": "a gull overhead"})
     assert how.startswith("a woodblock print of the {kind}, in the manner of a Dutch Golden Age marine painting") and how.endswith("a gull overhead")
     text = P.prompt_for({"style": "engraving", "typ": "Tanker", "name": "Nordic Aurora", "flag": "Marshall Islands", "photo": "https://x/y.jpg", "fidelity": "free", "view": "stern"})
@@ -478,3 +522,51 @@ def test_the_hosts_commons_lookup_is_used_when_there(tmp_path, offline, monkeypa
     p = A.photo_of("9458054", tmp_path, "ua", "Maersk Elba")
     assert asked == [("IMO 9458054", "Maersk Elba", "9458054", "(ship")] and p["by"] == "A. Spotter" and p["w"] == "1800"
     assert not (tmp_path / "photos").exists(), "nothing kept by the widget; the host keeps it"
+
+
+# ----------------------------------------------------------------------
+# Flickr, the ranking and the words a vessel is painted from
+# ----------------------------------------------------------------------
+FLICKR_SETTINGS = {**SETTINGS, "flickr_api_key": "fk", "fleet_notes": "# my regulars\nSvitzer *: dark blue hull, white wheelhouse, a red band on the funnel\nLADY ANNE: a white ketch with tan sails\n"}
+
+
+def test_flickr_photographs_for_the_vessels_commons_lacks(tmp_path, offline, stream):
+    prompts, _uas = offline
+    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos", "include_moored": "true"}, FLICKR_SETTINGS, ctx=_ctx(tmp_path))
+    by = {v["name"]: v for v in r["vessels"]}
+    assert by["Maersk Elba"]["pic"]["credit"].endswith("(Wikimedia Commons, CC BY-SA 4.0)"), "Commons first"
+    tug = by["Svitzer Eureka"]["pic"]
+    assert tug and tug["kind"] == "photo" and tug["credit"] == "photo by Port Spotter (Flickr, CC BY-NC 2.0)" and tug["link"] == "https://www.flickr.com/photos/11@N02/501/"
+    tanker = A.flickr_photo("fk", "9312345", "Nordic Aurora", tmp_path / "f", "ua")
+    assert tanker["by"] == "Tanker Watch" and tanker["lic"] == "CC BY-SA 2.0" and tanker["from"] == "flickr", "by IMO number, for a ship Commons has no category for"
+    assert by["Lady Anne"]["pic"] is None, "a portrait called Lady Anne is not a ketch"
+    assert all("3" not in q["license"].split(",") and "6" not in q["license"].split(",") for q in prompts.flickr), "never the ND licences"
+    assert any(q["text"] == "IMO 9312345" for q in prompts.flickr) and any(q["text"] == '"Svitzer Eureka"' for q in prompts.flickr)
+    n = len(prompts.flickr)
+    fleet.fetch({**PORT_MELBOURNE, "pictures": "photos"}, FLICKR_SETTINGS, ctx=_ctx(tmp_path))
+    assert len(prompts.flickr) == n, "kept on disk; asked once"
+    assert A.flickr_photo("fk", "", "SVITZER EUREKA", tmp_path, "ua", nc=False) == {}, "open licences only: the BY-NC photo is passed over"
+    assert A.flickr_photo("fk", "", "Tug", tmp_path, "ua") == {}, "a short, plain name is never searched"
+    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos"}, {**FLICKR_SETTINGS, "flickr_api_key": "bad"}, ctx=_ctx(tmp_path / "b"))
+    assert any("Flickr refused the API key" in x for x in r["notices"])
+
+
+def test_photographed_first_and_the_words_she_is_painted_from(tmp_path, offline, stream):
+    prompts, _uas = offline
+    r = plate.fetch({**PORT_MELBOURNE, "pictures": "paintings", "style": "linocut"}, SETTINGS, ctx=_ctx(tmp_path))
+    assert r["vessels"][0]["shown_name"] == "Maersk Elba", "the nearest photographed vessel, not the nearest tug"
+    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "paintings", "style": "linocut", "count": "4", "include_moored": "false"}, FLICKR_SETTINGS | {"flickr_api_key": ""}, ctx=_ctx(tmp_path))
+    _settle()
+    tug = next(p for p in prompts if "Svitzer Eureka" in p["prompt"])
+    assert "harbour tug" in tug["prompt"] and "dark blue hull, white wheelhouse, a red band on the funnel" in tug["prompt"], "the fleet note, over the livery table"
+    assert "She is about 32 metres long and 12 across, under way at 6 knots with a wake behind her." in tug["prompt"]
+    assert "a white ketch with tan sails" in next(p for p in prompts if "Lady Anne" in p["prompt"])["prompt"]
+    assert not any("staticflickr" in str(p.get("image_urls")) for p in prompts)
+    keys = sorted(p.stem for p in P.gen_dir(tmp_path).glob("*.jpg"))
+    assert any("--words2--d_" in k for k in keys), "the words are in the key: a changed note repaints"
+    assert P.livery_for("MAERSK ELBA") == ("in Maersk's livery: a light blue hull, white superstructure, a light blue funnel with a white seven-pointed star", "container ship")
+    assert P.livery_for("SPIRIT OF TASMANIA IV")[1] == "passenger and vehicle ferry" and P.livery_for("Unknown Boat") == ("", "")
+    notes = P.parse_notes("Svitzer *: blue\nqueenscliff: the pilot launch\nbad line\n")
+    assert P.note_for("SVITZER MARYSVILLE", notes) == "blue" and P.note_for("Queenscliff", notes) == "the pilot launch" and P.note_for("Queenscliffe Two", notes) == ""
+    words = P.prompt_for({"name": "ANL WARRNAMBOOL", "typ": "Cargo ship", "cls": "cargo", "len": 294, "beam": 32, "draught": 12.5, "status": "at anchor", "dest": "AU MEL", "flag": "Liberia", "style": "poster", "trade": "container ship", "words": "in ANL's livery"})
+    assert words.startswith("Draw a container ship, the ANL WARRNAMBOOL under the flag of Liberia, a large, Panamax-sized one, as") and "in ANL's livery" in words and "lying at anchor, still, bound for AU MEL" in words

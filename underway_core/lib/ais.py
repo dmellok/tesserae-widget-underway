@@ -1161,7 +1161,246 @@ def listener_note(
 # ----------------------------------------------------------------------
 # Photographs: Wikimedia Commons keeps a category per IMO number
 # ----------------------------------------------------------------------
-def photo_of(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str]:
+def photo_of(
+    imo: str,
+    data_dir: Path,
+    ua: str,
+    name: str = "",
+    flickr_key: str = "",
+    flickr_nc: bool = True,
+) -> dict[str, str]:
+    """A photograph of the vessel: Wikimedia Commons by IMO number first, then
+    Flickr with a key, by IMO number and then by name. {src, by, lic, link,
+    w, h, from}; {} when there is none."""
+    pic = commons_photo(imo, data_dir, ua, name) if imo else {}
+    if pic:
+        pic.setdefault("from", "commons")
+        return pic
+    if flickr_key:
+        return flickr_photo(flickr_key, imo, name, data_dir, ua, nc=flickr_nc)
+    return {}
+
+
+def source_label(photo: dict[str, Any] | None) -> str:
+    return "Flickr" if (photo or {}).get("from") == "flickr" else "Wikimedia Commons"
+
+
+FLICKR = "https://api.flickr.com/services/rest/"
+# Flickr's licence ids. 0 is all rights reserved; 3 and 6 (the ND licences)
+# forbid derivative works, which a painting is, so neither is ever asked for.
+FLICKR_LICENCES = {
+    1: "CC BY-NC-SA 2.0",
+    2: "CC BY-NC 2.0",
+    4: "CC BY 2.0",
+    5: "CC BY-SA 2.0",
+    7: "no known copyright restrictions",
+    8: "United States Government work",
+    9: "CC0 1.0",
+    10: "Public Domain Mark 1.0",
+}
+FLICKR_OPEN = (4, 5, 7, 8, 9, 10)
+FLICKR_NC = (1, 2)
+FLICKR_KEY_S = 3600  # a refused key is not asked again for this long
+# A photo found by the vessel's name alone must also say it is of a vessel
+SEA_WORDS = (
+    "ship",
+    "vessel",
+    "tug",
+    "ferry",
+    "boat",
+    "pilot",
+    "tanker",
+    "cargo",
+    "container",
+    "bulk",
+    "cruise",
+    "imo",
+    "mmsi",
+    "harbour",
+    "harbor",
+    "port",
+    "dock",
+    "wharf",
+    "bay",
+    "sea",
+    "shipspotting",
+    "maritime",
+    "navy",
+    "hmas",
+    "yacht",
+    "dredger",
+    "carrier",
+    "freighter",
+    "liner",
+    "catamaran",
+    "launch",
+    "cutter",
+    "trawler",
+)
+
+
+def _flickr_key_file(data_dir: Path) -> Path:
+    return data_dir / "photos" / "flickr_key.json"
+
+
+def flickr_note(key: str, data_dir: Path) -> str:
+    """A word for the foot of the page when Flickr refused the key."""
+    if not str(key or "").strip():
+        return ""
+    got = N.read_json(_flickr_key_file(data_dir), None)
+    if (
+        isinstance(got, dict)
+        and not got.get("ok", True)
+        and time.time() - _num(got.get("at")) < FLICKR_KEY_S
+    ):
+        return f"Flickr refused the API key under Underway Core's settings ({got.get('why') or 'invalid key'})."
+    return ""
+
+
+def _flickr_search(
+    key: str, text: str, licences: tuple[int, ...], ua: str, data_dir: Path
+) -> tuple[list[dict[str, Any]] | None, str]:
+    """The photos Flickr finds for the words, under the licences, or (None, why)."""
+    q = urllib.parse.urlencode(
+        {
+            "method": "flickr.photos.search",
+            "api_key": key,
+            "text": text,
+            "license": ",".join(str(x) for x in licences),
+            "sort": "relevance",
+            "content_type": "1",
+            "media": "photos",
+            "safe_search": "1",
+            "per_page": "24",
+            "extras": "owner_name,license,url_l,url_c,url_m,description,tags",
+            "format": "json",
+            "nojsoncallback": "1",
+        }
+    )
+    data, err = N.get_json(f"{FLICKR}?{q}", ua=ua, timeout=4)
+    if not isinstance(data, dict):
+        return None, err or "no answer"
+    if data.get("stat") != "ok":
+        why = str(data.get("message") or "refused")[:80]
+        if int(_num(data.get("code"), 0)) in (100, 99, 98):
+            N.write(
+                _flickr_key_file(data_dir),
+                json.dumps({"ok": False, "at": time.time(), "why": why}).encode(),
+            )
+            return None, "key"
+        return None, why
+    photos = (data.get("photos") or {}).get("photo") or []
+    return [ph for ph in photos if isinstance(ph, dict)], ""
+
+
+def _flickr_pick(
+    photos: list[dict[str, Any]], imo: str, name: str, by_name: bool
+) -> dict[str, str]:
+    """The best photo of the vessel among Flickr's answers: one that names the
+    IMO number, or, found by name, one whose title or tags carry the whole
+    name and that says it is of a vessel; landscape and of a good size wins."""
+    name_l = " ".join(str(name or "").lower().split())
+    best: tuple[float, dict[str, str]] | None = None
+    for ph in photos:
+        title = str(ph.get("title") or "")
+        desc = str((ph.get("description") or {}).get("_content") or "")
+        tags = str(ph.get("tags") or "").lower()
+        blob = f"{title} {desc} {tags}".lower()
+        if imo and imo not in blob:
+            if not by_name:
+                continue
+        if by_name:
+            if not name_l or not (
+                name_l in title.lower() or name_l.replace(" ", "") in tags.split()
+            ):
+                continue
+            if not (imo and imo in blob) and not any(
+                re.search(rf"\b{re.escape(w)}s?\b", blob) for w in SEA_WORDS
+            ):
+                continue
+        src, w, h = "", 0.0, 0.0
+        for size in ("l", "c"):
+            if ph.get(f"url_{size}"):
+                src = str(ph[f"url_{size}"])
+                w, h = _num(ph.get(f"width_{size}")), _num(ph.get(f"height_{size}"))
+                break
+        if not src or w < 640 or h < 360:
+            continue
+        ratio = w / max(h, 1)
+        score = (
+            title_score(title, imo, name)
+            + (2.0 if imo and imo in blob else 0.0)
+            + min(ratio, 2.2)
+            + (0.5 if 1.2 <= ratio <= 1.9 else 0)
+        )
+        lic = FLICKR_LICENCES.get(int(_num(ph.get("license"), -1)), "")
+        if not lic:
+            continue
+        cand = {
+            "src": src,
+            "by": str(ph.get("ownername") or ph.get("owner") or "")[:80],
+            "lic": lic,
+            "link": f"https://www.flickr.com/photos/{ph.get('owner')}/{ph.get('id')}/",
+            "w": str(int(w)),
+            "h": str(int(h)),
+            "from": "flickr",
+        }
+        if best is None or score > best[0]:
+            best = (score, cand)
+    return best[1] if best else {}
+
+
+def flickr_photo(
+    key: str, imo: str, name: str, data_dir: Path, ua: str, nc: bool = True
+) -> dict[str, str]:
+    """A photograph of the vessel on Flickr under a licence that allows a
+    painting to be made from it: by IMO number (the spotters put it in the
+    title), then by her name when it is distinctive enough. Kept a month, a
+    miss a week. ``nc`` admits the non-commercial licences too."""
+    key = str(key or "").strip()
+    imo = re.sub(r"\D", "", str(imo or ""))
+    imo = "" if imo == "0" else imo
+    name = " ".join(str(name or "").split())
+    if not key or not (imo or name):
+        return {}
+    who = f"imo_{imo}" if imo else f"name_{N.slug(name)[:40]}"
+    cache = data_dir / "photos" / f"flickr_{who}{'' if nc else '_open'}.json"
+    got = N.read_json(cache, None)
+    if isinstance(got, dict) and time.time() - _num(got.get("at")) < (
+        PHOTO_S if got.get("photo") else 7 * 86400
+    ):
+        return got.get("photo") or {}
+    bad = N.read_json(_flickr_key_file(data_dir), None)
+    if (
+        isinstance(bad, dict)
+        and not bad.get("ok", True)
+        and time.time() - _num(bad.get("at")) < FLICKR_KEY_S
+    ):
+        return {}
+    licences = FLICKR_OPEN + (FLICKR_NC if nc else ())
+    queries: list[tuple[str, bool]] = []
+    if imo:
+        queries.append((f"IMO {imo}", False))
+    if name and (len(name) >= 8 or " " in name):
+        queries.append((f'"{name}"', True))
+    photo: dict[str, str] = {}
+    asked = False
+    for text, by_name in queries:
+        photos, why = _flickr_search(key, text, licences, ua, data_dir)
+        if photos is None:
+            if why in ("key", "unreachable"):
+                return {}
+            continue
+        asked = True
+        photo = _flickr_pick(photos, imo, name, by_name)
+        if photo:
+            break
+    if asked:
+        N.write(cache, json.dumps({"at": time.time(), "photo": photo}).encode())
+    return photo
+
+
+def commons_photo(imo: str, data_dir: Path, ua: str, name: str = "") -> dict[str, str]:
     """{src, by, lic, link, w, h} for a photograph of the ship on Wikimedia
     Commons (Category:IMO <number>, which holds the ship's own category), kept
     a month; {} when there is none. Among the category's files the ship

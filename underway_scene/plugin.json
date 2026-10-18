@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Scene",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "The nearest vessel as one whole painting across the page: the ship from her own photograph on a painted sea (open water, in harbour, along the coast, sunset, night, heavy weather or an ornate plate), with her particulars set over it. Her photograph without a fal.ai key.",
@@ -134,14 +134,31 @@
       "choices": [
         {
           "value": "photos",
-          "label": "Photographs of the ship (Wikimedia Commons, by IMO number)"
+          "label": "Photographs of the ship (Wikimedia Commons; Flickr with a key)"
         },
         {
           "value": "paintings",
           "label": "AI paintings, each from her photograph or her particulars"
         }
       ],
-      "help": "Photographs cost nothing; a vessel without an IMO number has none. AI paintings paint each ship once, from her photograph where there is one and from her type, size and flag where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
+      "help": "Photographs cost nothing: Wikimedia Commons by IMO number, and with a Flickr key in the Underway Core settings, Flickr by IMO number and by name under an open licence. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
+    },
+    {
+      "name": "ranking",
+      "type": "select",
+      "label": "Which vessels",
+      "default": "photos",
+      "choices": [
+        {
+          "value": "photos",
+          "label": "Photographed first: within the order above, those with a photograph lead"
+        },
+        {
+          "value": "order",
+          "label": "The order above alone"
+        }
+      ],
+      "help": "Photographed first looks twice as deep as the page shows and brings the vessels with a photograph to the front, so the page is not silhouettes and impressions while a photographed ship sits just beyond the count."
     },
     {
       "name": "style",

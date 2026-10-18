@@ -185,6 +185,7 @@ DEFAULT_MODEL = "nano_banana"
 TYPICAL_CENTS = 4
 UNLIMITED = artwork.UNLIMITED if artwork is not None else 10**9
 PROMPT_VERSION = 1
+WORDS_VERSION = 2  # the from-particulars prompt; a bump repaints the impressions
 CUT_VERSION = 1
 NOTE_NO_KEY = "AI pictures need a fal.ai key: this widget's own, or the app's under Settings › Generative AI."
 
@@ -523,9 +524,338 @@ GEN_FAITHFUL = (
 )
 GEN_WORDS = (
     "Draw {about}, the {name}{flag}{size}, as {style}: a plausible, specific, well-observed {typ} of that kind "
-    "and size, her hull and superstructure of the usual form for her trade, {view}{scene}. {page} No text or "
-    "lettering beyond her name on the bow, no border, no signature.{outline}"
+    "and size, her hull and superstructure of the usual form for her trade{words}, {view}{scene}. {more}{page} "
+    "No text or lettering beyond her name on the bow, no border, no signature.{outline}"
 )
+
+# What the shipping lines paint their ships: the name's first word or two says
+# whose she is, and the livery is the most of what a painting from words can
+# get right. Hull, superstructure and funnel as the lines have painted them for
+# years; liveries change, so each is worded as the usual, not the certain.
+# (pattern on the upper-cased name, the words, her trade or "")
+LIVERIES: tuple[tuple[str, str, str], ...] = (
+    (
+        r"^MAERSK\b|\bMAERSK$",
+        "in Maersk's livery: a light blue hull, white superstructure, a light blue funnel with a white seven-pointed star",
+        "container ship",
+    ),
+    (
+        r"^MSC\b",
+        "in MSC's livery: a black hull with a yellow band at the rail, white superstructure, a buff funnel with a dark blue band",
+        "container ship",
+    ),
+    (
+        r"^CMA CGM\b",
+        "in CMA CGM's livery: a dark blue hull with a red boot-top, white superstructure, a dark blue funnel with red and white bands",
+        "container ship",
+    ),
+    (
+        r"^COSCO\b",
+        "in COSCO's livery: a dark blue hull with COSCO in white along the side, white superstructure, a funnel in red and white",
+        "container ship",
+    ),
+    (
+        r"^EVER\s?[A-Z]",
+        "in Evergreen's livery: a dark green hull with EVERGREEN in white along the side, white superstructure, a green funnel",
+        "container ship",
+    ),
+    (
+        r"\bHAPAG|\bLLOYD\b",
+        "in Hapag-Lloyd's livery: a black hull, white superstructure, an orange funnel with a black top and a blue band",
+        "container ship",
+    ),
+    (
+        r"^ONE\b",
+        "in Ocean Network Express's livery: a magenta hull with ONE in white along the side, white superstructure, a magenta funnel",
+        "container ship",
+    ),
+    (
+        r"^ANL\b",
+        "in ANL's livery: a dark blue hull with ANL in white, white superstructure, a blue funnel with a red band",
+        "container ship",
+    ),
+    (
+        r"^OOCL\b",
+        "in OOCL's livery: a grey hull with OOCL in large white letters along the side, white superstructure, a funnel in red and white with a plum blossom",
+        "container ship",
+    ),
+    (
+        r"^YM\b|^YANG MING\b",
+        "in Yang Ming's livery: a grey hull with YANG MING along the side, white superstructure, a funnel with a red Y on white",
+        "container ship",
+    ),
+    (
+        r"^HMM\b|^HYUNDAI\b",
+        "in HMM's livery: a dark blue hull with HMM in white, white superstructure, a blue funnel",
+        "container ship",
+    ),
+    (
+        r"^ZIM\b",
+        "in ZIM's livery: a white hull with a blue band and ZIM along the side, white superstructure, a funnel with ZIM's seven stars",
+        "container ship",
+    ),
+    (
+        r"^WAN HAI\b",
+        "in Wan Hai's livery: a dark hull, white superstructure, a funnel in blue, red and white",
+        "container ship",
+    ),
+    (
+        r"^KOTA\b",
+        "in PIL's livery: a dark grey hull with PACIFIC INTERNATIONAL LINES along the side, white superstructure, a red funnel with a white band",
+        "container ship",
+    ),
+    (
+        r"^NYK\b",
+        "in NYK's livery: a dark grey hull with white rails, white superstructure, a funnel with two red bands on white",
+        "cargo ship",
+    ),
+    (
+        r"^MOL\b",
+        "in MOL's livery: a light grey hull, white superstructure, a funnel in red and white",
+        "cargo ship",
+    ),
+    (
+        r"^CAP\b|^SANTA\b|^MONTE\b|^RIO\b",
+        "in Hamburg Süd's livery: a bright red hull, white superstructure, a red funnel with a white band",
+        "container ship",
+    ),
+    (
+        r"^HOEGH\b|^HÖEGH\b",
+        "in Höegh Autoliners' livery: a tall slab-sided car carrier with an orange hull and a white superstructure",
+        "car carrier",
+    ),
+    (
+        r"^WALLENIUS\b|^WILHELMSEN\b|^MORNING\b|^TITANIA\b|^TOSCA\b",
+        "in Wallenius Wilhelmsen's livery: a tall slab-sided car carrier with a green hull and an orange upper hull, white top",
+        "car carrier",
+    ),
+    (
+        r"^GRANDE\b|^GRIMALDI\b",
+        "in Grimaldi's livery: a tall slab-sided car carrier with a yellow hull and GRIMALDI LINES along the side",
+        "car carrier",
+    ),
+    (
+        r"^STOLT\b",
+        "in Stolt's livery: a dark hull with a red boot-top, white superstructure, a red funnel, pipework along her deck",
+        "chemical tanker",
+    ),
+    (
+        r"^HAFNIA\b",
+        "in Hafnia's livery: a red hull, white superstructure, pipework and a manifold amidships",
+        "product tanker",
+    ),
+    (
+        r"^TORM\b",
+        "in Torm's livery: a red hull, white superstructure, a dark funnel",
+        "product tanker",
+    ),
+    (
+        r"^FRONT\b",
+        "in Frontline's livery: a black hull with a red boot-top, white superstructure, a long flat deck of pipework",
+        "crude oil tanker",
+    ),
+    (
+        r"^SPIRIT OF TASMANIA\b",
+        "in Spirit of Tasmania's livery: a bright red hull with a white superstructure and SPIRIT OF TASMANIA in white along the side, a large ro-pax ferry with a stern door",
+        "passenger and vehicle ferry",
+    ),
+    (
+        r"^SEAROAD\b",
+        "in SeaRoad's livery: a dark blue hull with SEAROAD in white along the side, white superstructure, a ro-ro ferry with a stern ramp",
+        "ro-ro cargo ferry",
+    ),
+    (
+        r"^SVITZER\b",
+        "in Svitzer's livery: a dark blue hull, a white wheelhouse, a red and black funnel, a tall tug with a high bow",
+        "harbour tug",
+    ),
+    (
+        r"^SMIT\b",
+        "in Smit's livery: a black hull with a red boot-top, a white wheelhouse, a dark funnel, a harbour tug",
+        "harbour tug",
+    ),
+    (
+        r"^KOTUG\b|^RT\b",
+        "in Kotug's livery: a dark hull, a white wheelhouse, a blue funnel band, a compact harbour tug",
+        "harbour tug",
+    ),
+    (
+        r"^STENA\b",
+        "in Stena's livery: a white hull with a red boot-top and STENA LINE in blue along the side, a white funnel with a red and blue mark, a large ferry",
+        "passenger ferry",
+    ),
+    (
+        r"^DFDS\b|\bSEAWAYS$",
+        "in DFDS's livery: a dark blue hull with DFDS SEAWAYS in white along the side, white superstructure, a blue funnel",
+        "passenger ferry",
+    ),
+    (
+        r"^PRIDE OF\b|^SPIRIT OF (BRITAIN|FRANCE)\b",
+        "in P&O Ferries' livery: a dark blue hull with P&O in white along the side, white superstructure, a large ferry",
+        "passenger ferry",
+    ),
+    (
+        r"^INTERISLANDER\b|^ARATERE\b|^KAITAKI\b|^KAIARAHI\b",
+        "in Interislander's livery: a white hull and superstructure with a dark blue band, a large ro-pax ferry",
+        "passenger and vehicle ferry",
+    ),
+    (
+        r"^QUEEN (MARY|ELIZABETH|VICTORIA|ANNE)\b",
+        "in Cunard's livery: a black hull with a thin white line, a white superstructure and a red funnel with black bands, a classic ocean liner",
+        "ocean liner",
+    ),
+    (
+        r"\bOF THE SEAS$",
+        "in Royal Caribbean's livery: a dark blue hull with a white superstructure many decks high, a funnel with a blue crown and anchor, a very large cruise ship",
+        "cruise ship",
+    ),
+    (
+        r"\bPRINCESS$",
+        "in Princess Cruises' livery: a white hull and superstructure many decks high, a funnel with a sea witch in blue, a cruise ship",
+        "cruise ship",
+    ),
+    (
+        r"^CARNIVAL\b",
+        "in Carnival's livery: a white hull with a blue and red stripe along the side, a red, white and blue whale-tail funnel, a cruise ship",
+        "cruise ship",
+    ),
+    (
+        r"^PACIFIC\b",
+        "in P&O Cruises Australia's livery: a white hull and superstructure with a dark blue funnel, a cruise ship",
+        "cruise ship",
+    ),
+    (
+        r"^CELEBRITY\b",
+        "in Celebrity's livery: a dark blue hull, a white superstructure, a blue funnel with a white X, a cruise ship",
+        "cruise ship",
+    ),
+    (
+        r"^HMAS\b",
+        "a Royal Australian Navy warship: a haze grey hull and superstructure, a pennant number in black on the bow, radar masts, a gun forward",
+        "naval vessel",
+    ),
+    (
+        r"^HMS\b|^HMNZS\b|^USS\b|^HMCS\b",
+        "a warship: a grey hull and superstructure, a pennant number on the bow, radar masts, a gun forward",
+        "naval vessel",
+    ),
+    (
+        r"^RSV NUYINA\b|^AURORA AUSTRALIS\b",
+        "an Antarctic research and supply ship: a bright orange-red hull, a white superstructure, a helicopter deck aft",
+        "research vessel",
+    ),
+    (
+        r"\bPILOT\b",
+        "a pilot boat: a small, fast launch with an orange or red hull, a white wheelhouse and PILOT along the side",
+        "pilot vessel",
+    ),
+    (
+        r"^POLICE\b|^WATER POLICE\b",
+        "a police launch: a white hull with a blue and white chequer band and POLICE along the side",
+        "police launch",
+    ),
+)
+
+
+def livery_for(name: str) -> tuple[str, str]:
+    """(words, trade) for the vessel's name, or ('', '')."""
+    n = " ".join(str(name or "").upper().split())
+    for pat, words, trade in LIVERIES:
+        if n and re.search(pat, n):
+            return words, trade
+    return "", ""
+
+
+def parse_notes(text: Any) -> list[tuple[str, str]]:
+    """The user's fleet notes: one vessel a line, ``name: how she looks``. The
+    name may end in * to match a fleet (``Svitzer *``); a bare name matches
+    the whole name or its start."""
+    out: list[tuple[str, str]] = []
+    for line in str(text or "").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        who, words = line.split(":", 1)
+        who = " ".join(who.split()).lower()
+        words = " ".join(words.split())[:300]
+        if who and words:
+            out.append((who, words))
+    return out
+
+
+def note_for(name: str, notes: list[tuple[str, str]]) -> str:
+    n = " ".join(str(name or "").lower().split())
+    if not n:
+        return ""
+    for who, words in notes:
+        pat = who.rstrip("* ").strip()
+        if "*" in who or who.endswith(" "):
+            if n.startswith(pat):
+                return words
+        elif n == pat or n.startswith(pat + " "):
+            return words
+    return ""
+
+
+def words_for(name: str, notes: list[tuple[str, str]]) -> tuple[str, str]:
+    """(how she looks, her trade) for a vessel without a photograph: the
+    user's note on her first, then the line's livery, then nothing."""
+    note = note_for(name, notes)
+    livery, trade = livery_for(name)
+    if note:
+        return note, trade
+    return livery, trade
+
+
+def particulars(job: dict[str, Any]) -> str:
+    """What AIS says of her, as a sentence for the painter: her size, how she
+    lies or moves, where she is bound."""
+    bits: list[str] = []
+    length = int(_num0(job.get("len")))
+    beam = int(_num0(job.get("beam")))
+    draught = _num0(job.get("draught"))
+    if length:
+        size = f"about {length} metres long"
+        if beam:
+            size += f" and {beam} across"
+        if draught >= 1:
+            size += f", drawing {draught:g} metres"
+        bits.append(size)
+    status = str(job.get("status") or "").lower()
+    sog = _num0(job.get("sog"))
+    if "anchor" in status:
+        bits.append("lying at anchor, still")
+    elif "moored" in status:
+        bits.append("moored alongside")
+    elif "under way" in status or sog >= 1:
+        bits.append(
+            f"under way at {sog:g} knots with a wake behind her"
+            if sog >= 1
+            else "under way"
+        )
+    dest = " ".join(str(job.get("dest") or "").split())
+    if dest and re.search(r"[A-Za-z]{3}", dest):
+        bits.append(f"bound for {dest}")
+    if not bits:
+        return ""
+    return "She is " + ", ".join(bits) + ". "
+
+
+def _num0(v: Any) -> float:
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+SIZE_CLASS = (
+    (90, "a small coaster-sized"),
+    (170, "a handy-sized"),
+    (235, "a mid-sized"),
+    (300, "a large, Panamax-sized"),
+    (10**6, "a very large"),
+)
+
 FIDELITIES = ("photo", "free")
 PAGE_ALONE = (
     "The vessel alone on plain, pure white paper with a clear margin all round and nothing else on the page: no "
@@ -714,10 +1044,18 @@ def key_for(
     sea: str = "",
     fidelity: str = "photo",
     photo: bool = True,
+    words: str = "",
 ) -> str:
     parts = [N.slug(who), style, f"p{PROMPT_VERSION}"]
     if not photo:
-        parts.append("words")
+        parts.append(f"words{WORDS_VERSION}")
+        if words:
+            parts.append(
+                "d_"
+                + hashlib.sha1(
+                    words.encode("utf-8"), usedforsecurity=False
+                ).hexdigest()[:8]
+            )
     elif fidelity == "free":
         parts.append("free")
     else:
@@ -781,15 +1119,23 @@ def prompt_for(job: dict[str, Any]) -> str:
     flag = f" under the flag of {job['flag']}" if job.get("flag") else ""
     name = str(job.get("name") or "").strip() or "unnamed"
     if not job.get("photo"):
-        length = job.get("len") or 0
-        size = f", about {int(length)} metres long" if length else ""
+        length = int(_num0(job.get("len")))
+        words = str(job.get("words") or "").strip()
+        trade = str(job.get("trade") or "").strip()
+        about = f"a {trade}" if trade else (job.get("about") or "a vessel")
+        typ = trade or str(job.get("typ") or "vessel").lower()
+        size = ""
+        if length and str(job.get("cls") or "") in ("cargo", "tanker"):
+            size = ", " + next(w for top, w in SIZE_CLASS if length < top) + " one"
         text = GEN_WORDS.format(
-            about=job.get("about") or "a vessel",
+            about=about,
             style=how,
-            typ=str(job.get("typ") or "vessel").lower(),
+            typ=typ,
             name=name,
             flag=flag,
             size=size,
+            words=f", {words}" if words else "",
+            more=particulars(job),
             view=VIEWS.get(str(job.get("view") or "side"), VIEWS["side"]),
             scene=scene,
             page=PAGE_ALONE if alone else PAGE_WHOLE,
@@ -1086,7 +1432,7 @@ def make(job: Any) -> tuple[bytes, dict[str, Any]]:
         if j.get("monster")
         else f"painted by {label} from her particulars"
         if t2i
-        else f"painted by {label} from a photograph by {j.get('by') or 'a Commons contributor'} (Wikimedia Commons, {j.get('lic') or 'open licence'})"
+        else f"painted by {label} from a photograph by {j.get('by') or 'a Commons contributor'} ({j.get('source') or 'Wikimedia Commons'}, {j.get('lic') or 'open licence'})"
     )
     meta = {
         "mmsi": j.get("mmsi"),
@@ -1101,6 +1447,8 @@ def make(job: Any) -> tuple[bytes, dict[str, Any]]:
         "monster": j.get("monster") or "",
         "by": j.get("by") or "",
         "link": j.get("link") or "",
+        "source": j.get("source") or "",
+        "words": j.get("words") or "",
         "prompt": prompt,
         "prompt_version": PROMPT_VERSION,
     }

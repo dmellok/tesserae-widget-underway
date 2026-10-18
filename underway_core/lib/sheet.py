@@ -57,6 +57,7 @@ LABELS = (
     "imo",
 )
 UNPAINTED = ("silhouette", "photo", "skip")
+RANKINGS = ("photos", "order")
 MAX_COUNT = 12
 POOL = 6
 PICTURE_PX = 700
@@ -417,6 +418,10 @@ def fetch(
         sea, sea_words = f"{tod}_{wx}", A.sea_words(tod, wx)
         base["sea"] = {"time": tod, "weather": wx}
     api_key = str(settings.get("aisstream_key") or "").strip()
+    flickr_key = str(settings.get("flickr_api_key") or "").strip()
+    flickr_nc = str(settings.get("flickr_licences") or "nc").strip() != "open"
+    notes = P.parse_notes(settings.get("fleet_notes"))
+    ranking = _choice(options.get("ranking"), RANKINGS, "photos")
     rows, err, feed, warming = A.nearby(
         source,
         str(options.get("receiver_url") or ""),
@@ -446,7 +451,13 @@ def fetch(
         "photo" if widget in ("plate", "scene") else "silhouette",
     )
     only_painted = pictures == "paintings" and unpainted == "skip"
-    pool = rows[: max(count, POOL) if only_painted else count]
+    # Photographed first: twice as many are looked up, and those with a
+    # photograph lead within the order chosen, so a page is not silhouettes
+    # and impressions while a photographed ship sits just beyond the count.
+    depth = max(count, POOL) if only_painted else count
+    if ranking == "photos":
+        depth = max(depth, min(2 * count, MAX_COUNT + 4))
+    pool = rows[:depth]
     shown = pool
     if not shown:
         if warming:
@@ -475,8 +486,6 @@ def fetch(
         if pictures == "paintings" and widget != "photo"
         else None
     )
-    if visitor:
-        shown = shown + [visitor] if widget == "fleet" else shown[:1] + [visitor]
     deadline = fetch_started + BUDGET_S
     wants_photo = not only_painted and (
         pictures == "photos"
@@ -485,17 +494,22 @@ def fetch(
         or widget in ("photo", "plate", "scene")
     )
 
+    def has_lookup(r: dict[str, Any]) -> bool:
+        return bool(r.get("imo") or (flickr_key and r.get("name")))
+
     def enrich(r: dict[str, Any]) -> dict[str, Any]:
         got: dict[str, Any] = {
-            "photo": A.photo_of(r["imo"], data_dir, ua, r.get("name") or "")
-            if r.get("imo")
+            "photo": A.photo_of(
+                r["imo"], data_dir, ua, r.get("name") or "", flickr_key, flickr_nc
+            )
+            if has_lookup(r)
             else {}
         }
         if (wants_photo or pictures == "paintings") and got["photo"].get("src"):
             N.cached_get(data_dir, got["photo"]["src"], ua=ua)
         return got
 
-    plain = [r for r in shown if not r.get("visitor") and r.get("imo")]
+    plain = [r for r in shown if not r.get("visitor") and has_lookup(r)]
     deferred = 0
     for r in shown:
         r.setdefault("photo", {})
@@ -512,6 +526,14 @@ def fetch(
                 logger.exception("underway: lookups for %s failed", r.get("mmsi"))
                 pending.add(f)
         deferred += len(pending)
+    if ranking == "photos":
+        shown.sort(
+            key=lambda r: not (r.get("photo") or {}).get("src")
+        )  # stable: the order holds within
+        if not only_painted:
+            shown = shown[:count]
+    if visitor:
+        shown = shown + [visitor] if widget == "fleet" else shown[:1] + [visitor]
     for r in shown:
         if r.get("visitor"):
             r["lines"] = [
@@ -586,16 +608,34 @@ def fetch(
         if pictures == "paintings":
             has_photo = bool(photo.get("src"))
             who = r["imo"] or r["mmsi"] or r["name"]
+            words, trade = ("", "") if has_photo else P.words_for(r["name"], notes)
             key = P.key_for(
-                who, style, backdrop, view, model, sea, fidelity, photo=has_photo
+                who,
+                style,
+                backdrop,
+                view,
+                model,
+                sea,
+                fidelity,
+                photo=has_photo,
+                words=f"{words}|{trade}" if words or trade else "",
             )
             payload = {
                 "mmsi": r["mmsi"],
                 "name": r["name"],
                 "typ": r["typ"],
+                "cls": r["cls"],
                 "about": A.CLASS_ABOUT.get(r["cls"], "a vessel"),
                 "flag": r["flag"],
                 "len": r["len"],
+                "beam": r.get("beam") or 0,
+                "draught": r.get("draught") or 0,
+                "sog": r.get("sog") or 0,
+                "status": r.get("status") or "",
+                "dest": r.get("dest") or "",
+                "words": words,
+                "trade": trade,
+                "source": A.source_label(photo) if has_photo else "",
                 "style": style,
                 "how": how,
                 "backdrop": backdrop,
@@ -646,7 +686,7 @@ def fetch(
                     "src": src,
                     "kind": "photo",
                     "whole": True,
-                    "credit": f"photo by {photo.get('by') or 'a Commons contributor'} (Wikimedia Commons, {photo.get('lic') or 'open licence'})",
+                    "credit": f"photo by {photo.get('by') or 'a Commons contributor'} ({A.source_label(photo)}, {photo.get('lic') or 'open licence'})",
                     "aspect": N.aspect_of(src),
                     "link": photo.get("link") or "",
                 }
@@ -681,6 +721,9 @@ def fetch(
     if err:
         notices.append(err)
     note = A.listener_note(source, api_key, place[0], place[1], radius)
+    if note:
+        notices.append(note)
+    note = A.flickr_note(flickr_key, data_dir)
     if note:
         notices.append(note)
     live = art.live()
