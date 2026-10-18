@@ -418,8 +418,9 @@ def fetch(
         sea, sea_words = f"{tod}_{wx}", A.sea_words(tod, wx)
         base["sea"] = {"time": tod, "weather": wx}
     api_key = str(settings.get("aisstream_key") or "").strip()
-    flickr_key = str(settings.get("flickr_api_key") or "").strip()
-    flickr_nc = str(settings.get("flickr_licences") or "nc").strip() != "open"
+    licences = str(settings.get("photo_licences") or "nc").strip()
+    more_photos = licences != "commons"  # Openverse too, or Commons alone
+    photo_nc = licences != "open"
     notes = P.parse_notes(settings.get("fleet_notes"))
     ranking = _choice(options.get("ranking"), RANKINGS, "photos")
     rows, err, feed, warming = A.nearby(
@@ -495,12 +496,25 @@ def fetch(
     )
 
     def has_lookup(r: dict[str, Any]) -> bool:
-        return bool(r.get("imo") or (flickr_key and r.get("name")))
+        return bool(
+            r.get("imo")
+            or (
+                more_photos
+                and A.distinctive(r.get("name") or "")
+                and r.get("cls") not in A.AMBIGUOUS
+            )
+        )
 
     def enrich(r: dict[str, Any]) -> dict[str, Any]:
         got: dict[str, Any] = {
             "photo": A.photo_of(
-                r["imo"], data_dir, ua, r.get("name") or "", flickr_key, flickr_nc
+                r["imo"],
+                data_dir,
+                ua,
+                r.get("name") or "",
+                more_photos,
+                photo_nc,
+                strict=r.get("cls") in A.AMBIGUOUS,
             )
             if has_lookup(r)
             else {}
@@ -723,7 +737,7 @@ def fetch(
     note = A.listener_note(source, api_key, place[0], place[1], radius)
     if note:
         notices.append(note)
-    note = A.flickr_note(flickr_key, data_dir)
+    note = A.openverse_note(data_dir) if more_photos else ""
     if note:
         notices.append(note)
     live = art.live()

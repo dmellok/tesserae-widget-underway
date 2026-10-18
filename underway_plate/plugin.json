@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Plate",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "One vessel near you as a plate: painted from her own photograph in a style of your choosing, in a ruled frame, with her particulars beside her; or one of four modern looks in the colours of her trade. Her photograph until the painting lands, or without a fal.ai key.",
@@ -134,14 +134,14 @@
       "choices": [
         {
           "value": "photos",
-          "label": "Photographs of the ship (Wikimedia Commons; Flickr with a key)"
+          "label": "Photographs of the ship (Wikimedia Commons and Openverse)"
         },
         {
           "value": "paintings",
           "label": "AI paintings, each from her photograph or her particulars"
         }
       ],
-      "help": "Photographs cost nothing: Wikimedia Commons by IMO number, and with a Flickr key in the Underway Core settings, Flickr by IMO number and by name under an open licence. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
+      "help": "Photographs cost nothing and need no key: Wikimedia Commons by IMO number, then Openverse (which indexes the openly licensed pictures on Flickr, Commons and others) by IMO number and by name. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
     },
     {
       "name": "ranking",

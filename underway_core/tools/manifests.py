@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 TESSERAE_MIN = "0.463.0"
 
 _spec = _ilu.spec_from_file_location("_tesserae_plugins.underway_core.paint", ROOT / "underway_core" / "lib" / "paint.py")
@@ -52,7 +52,7 @@ def where_options():
 def picture_options(with_backdrop: bool, many: bool, scene: bool = False):
     show = {"pictures": "paintings"}
     out = [
-        sel("pictures", "Pictures", "photos", [("photos", "Photographs of the ship (Wikimedia Commons; Flickr with a key)"), ("paintings", "AI paintings, each from her photograph or her particulars")], help="Photographs cost nothing: Wikimedia Commons by IMO number, and with a Flickr key in the Underway Core settings, Flickr by IMO number and by name under an open licence. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."),
+        sel("pictures", "Pictures", "photos", [("photos", "Photographs of the ship (Wikimedia Commons and Openverse)"), ("paintings", "AI paintings, each from her photograph or her particulars")], help="Photographs cost nothing and need no key: Wikimedia Commons by IMO number, then Openverse (which indexes the openly licensed pictures on Flickr, Commons and others) by IMO number and by name. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."),
         sel("ranking", "Which vessels", "photos", [("photos", "Photographed first: within the order above, those with a photograph lead"), ("order", "The order above alone")], help="Photographed first looks twice as deep as the page shows and brings the vessels with a photograph to the front, so the page is not silhouettes and impressions while a photographed ship sits just beyond the count."),
         sel("style", "Style", "poster", STYLES, show_if=show),
         {"name": "custom_style", "type": "textarea", "label": "Your own prompt", "default": "", "show_if": {"pictures": "paintings", "style": "custom"}, "presets": PRESETS, "help": "The medium and the look; the widget adds the vessel, her photograph and the paper. Pick an example above to start from."},
@@ -128,15 +128,14 @@ CORE = {
     "name": "Underway Core",
     "version": VERSION,
     "kind": "data",
-    "description": "The settings and the paintings page for the Underway widgets (underway_photo, underway_plate, underway_fleet, underway_scene): the aisstream.io key, the fal.ai key, a Flickr key for more photographs, your fleet notes, the daily painting budget and the contact for Wikimedia Commons. No widget of its own.",
+    "description": "The settings and the paintings page for the Underway widgets (underway_photo, underway_plate, underway_fleet, underway_scene): the aisstream.io key, the fal.ai key, which photograph licences, your fleet notes, the daily painting budget and the contact for Wikimedia Commons. No widget of its own.",
     "icon": "ph-anchor",
     "supports": {"sizes": []},
     "requires": ["network:*"],
     "settings": [
         {"name": "aisstream_key", "type": "string", "label": "aisstream.io API key", "secret": True, "default": "", "help": "Free at https://aisstream.io: sign in with GitHub and make a key. The widget keeps one stream open for the sea round each place while a page asks (aisstream allows three per key) and lets it go after twenty minutes without one. Not needed with a receiver of your own."},
         {"name": "fal_api_key", "type": "string", "label": "fal.ai API key (AI paintings)", "secret": True, "default": "", "help": "With a key the widgets can paint each vessel from her photograph, at about US$0.04 a painting, once per ship and style. Leave it blank to use the key under Settings › Generative AI. Without either the widgets show photographs."},
-        {"name": "flickr_api_key", "type": "string", "label": "Flickr API key (more photographs)", "secret": True, "default": "", "help": "Free at https://www.flickr.com/services/apps/create (a non-commercial key). With one, a vessel Wikimedia Commons has no photograph of is looked up on Flickr, by IMO number and then by name, among photographs under a licence that allows a painting to be made from them; each is credited to the photographer and the licence on the page. Ship spotters photograph the tugs, ferries and pilot boats of a port that Commons never sees."},
-        sel("flickr_licences", "Flickr licences", "nc", [("nc", "Open and non-commercial: CC BY, BY-SA, BY-NC, BY-NC-SA, public domain"), ("open", "Open only: CC BY, BY-SA, public domain")], help="A panel at home is non-commercial use. The ND licences, which forbid derivative works, are never used."),
+        sel("photo_licences", "Photographs", "nc", [("nc", "Commons, then Openverse: open and non-commercial licences (CC BY, BY-SA, BY-NC, BY-NC-SA, public domain)"), ("open", "Commons, then Openverse: open licences only (CC BY, BY-SA, public domain)"), ("commons", "Wikimedia Commons alone")], help="Openverse indexes the openly licensed pictures on Flickr, Wikimedia Commons and others, and answers without a key: ship spotters photograph the tugs, ferries and pilot boats of a port that Commons never sees. A panel at home is non-commercial use. The ND licences, which forbid derivative works, are never used. Each photograph is credited to the photographer, the site and the licence on the page."),
         {"name": "fleet_notes", "type": "textarea", "label": "Fleet notes", "default": "", "help": "How your regulars look, for the vessels painted from their particulars: one a line, name: how she looks. A name ending in * covers a fleet. For example\nSvitzer *: dark blue hull, white wheelhouse, red and black funnel\nLady Anne: a white ketch with tan sails\nThe widget knows the liveries of the big lines (Maersk, MSC, Spirit of Tasmania, Svitzer and so on) already; a note of yours on a vessel comes first."},
         {"name": "contact", "type": "string", "label": "Contact for Wikimedia Commons", "default": "", "help": "An email address or a web page, sent in the widget's User-Agent as Wikimedia asks of every application that reads its API. The widget names its own project page by default."},
         {"name": "gen_daily_usd", "type": "slider", "label": "Painting budget per day", "default": 4, "min": 0, "max": 30, "step": 1, "unit": "US$", "help": "The most the widgets may spend on new paintings in a day, at the models' listed prices (US$4 is about a hundred Nano Banana paintings). 0 is no limit, within the ceiling under Settings › Generative AI. Paintings are kept, so a ship in a style only costs once."},

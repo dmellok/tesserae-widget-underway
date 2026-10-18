@@ -1166,233 +1166,210 @@ def photo_of(
     data_dir: Path,
     ua: str,
     name: str = "",
-    flickr_key: str = "",
-    flickr_nc: bool = True,
+    more: bool = True,
+    nc: bool = True,
+    strict: bool = False,
 ) -> dict[str, str]:
     """A photograph of the vessel: Wikimedia Commons by IMO number first, then
-    Flickr with a key, by IMO number and then by name. {src, by, lic, link,
-    w, h, from}; {} when there is none."""
+    Openverse (no key) by IMO number and then by name. {src, by, lic, link,
+    w, h, from, site}; {} when there is none. ``strict`` is for the small
+    craft whose names are anyone's (Lady Anne, Serenity): they are looked up
+    by IMO number alone, since a picture found by such a name is most often
+    another boat of the same name, and a wrong photograph is worse than none."""
     pic = commons_photo(imo, data_dir, ua, name) if imo else {}
     if pic:
         pic.setdefault("from", "commons")
         return pic
-    if flickr_key:
-        return flickr_photo(flickr_key, imo, name, data_dir, ua, nc=flickr_nc)
+    if more:
+        return openverse_photo(imo, name, data_dir, ua, nc=nc, strict=strict)
     return {}
 
 
 def source_label(photo: dict[str, Any] | None) -> str:
-    return "Flickr" if (photo or {}).get("from") == "flickr" else "Wikimedia Commons"
+    return str((photo or {}).get("site") or "Wikimedia Commons")
 
 
-FLICKR = "https://api.flickr.com/services/rest/"
-# Flickr's licence ids. 0 is all rights reserved; 3 and 6 (the ND licences)
-# forbid derivative works, which a painting is, so neither is ever asked for.
-FLICKR_LICENCES = {
-    1: "CC BY-NC-SA 2.0",
-    2: "CC BY-NC 2.0",
-    4: "CC BY 2.0",
-    5: "CC BY-SA 2.0",
-    7: "no known copyright restrictions",
-    8: "United States Government work",
-    9: "CC0 1.0",
-    10: "Public Domain Mark 1.0",
+def distinctive(name: str) -> bool:
+    """A name worth searching for by itself: long enough, or more than one word."""
+    n = " ".join(str(name or "").split())
+    return bool(n) and (len(n) >= 8 or " " in n)
+
+
+# Openverse (openverse.org, the WordPress foundation's index of openly licensed
+# pictures from Flickr, Wikimedia Commons and others) answers without a key:
+# twenty requests a minute and two hundred a day from one address. The ND
+# licences and all-rights-reserved are never asked for: a painting is a
+# derivative work.
+OPENVERSE = "https://api.openverse.org/v1/images/"
+OPENVERSE_LICENCES = {
+    "by": "CC BY",
+    "by-sa": "CC BY-SA",
+    "cc0": "CC0",
+    "pdm": "Public Domain Mark",
+    "by-nc": "CC BY-NC",
+    "by-nc-sa": "CC BY-NC-SA",
 }
-FLICKR_OPEN = (4, 5, 7, 8, 9, 10)
-FLICKR_NC = (1, 2)
-FLICKR_KEY_S = 3600  # a refused key is not asked again for this long
-# A photo found by the vessel's name alone must also say it is of a vessel
-SEA_WORDS = (
-    "ship",
-    "vessel",
-    "tug",
-    "ferry",
-    "boat",
-    "pilot",
-    "tanker",
-    "cargo",
-    "container",
-    "bulk",
-    "cruise",
-    "imo",
-    "mmsi",
-    "harbour",
-    "harbor",
-    "port",
-    "dock",
-    "wharf",
-    "bay",
-    "sea",
-    "shipspotting",
-    "maritime",
-    "navy",
-    "hmas",
-    "yacht",
-    "dredger",
-    "carrier",
-    "freighter",
-    "liner",
-    "catamaran",
-    "launch",
-    "cutter",
-    "trawler",
-)
+OPENVERSE_OPEN = ("by", "by-sa", "cc0", "pdm")
+OPENVERSE_NC = ("by-nc", "by-nc-sa")
+OPENVERSE_SITES = {"flickr": "Flickr", "wikimedia": "Wikimedia Commons"}
+OPENVERSE_GAP_S = 3.1  # twenty a minute, one at a time
+OPENVERSE_WAIT_S = 3600  # after a 429 with no Retry-After
+_OV_LOCK = threading.Lock()
+_OV_LAST = [0.0]
+# The classes whose names are anyone's: never looked up by name alone
+AMBIGUOUS = ("pleasure", "sail", "fishing", "other")
 
 
-def _flickr_key_file(data_dir: Path) -> Path:
-    return data_dir / "photos" / "flickr_key.json"
+def _openverse_wait_file(data_dir: Path) -> Path:
+    return data_dir / "photos" / "openverse_wait.json"
 
 
-def flickr_note(key: str, data_dir: Path) -> str:
-    """A word for the foot of the page when Flickr refused the key."""
-    if not str(key or "").strip():
-        return ""
-    got = N.read_json(_flickr_key_file(data_dir), None)
-    if (
-        isinstance(got, dict)
-        and not got.get("ok", True)
-        and time.time() - _num(got.get("at")) < FLICKR_KEY_S
-    ):
-        return f"Flickr refused the API key under Underway Core's settings ({got.get('why') or 'invalid key'})."
+def _openverse_waiting(data_dir: Path) -> bool:
+    got = N.read_json(_openverse_wait_file(data_dir), None)
+    return isinstance(got, dict) and time.time() < _num(got.get("until"))
+
+
+def openverse_note(data_dir: Path) -> str:
+    """A word for the foot of the page while Openverse's allowance is used up."""
+    if _openverse_waiting(data_dir):
+        return "Openverse's allowance of photograph look-ups is used up for now; the rest follow later."
     return ""
 
 
-def _flickr_search(
-    key: str, text: str, licences: tuple[int, ...], ua: str, data_dir: Path
+def _openverse_search(
+    q: str, licences: tuple[str, ...], ua: str, data_dir: Path
 ) -> tuple[list[dict[str, Any]] | None, str]:
-    """The photos Flickr finds for the words, under the licences, or (None, why)."""
-    q = urllib.parse.urlencode(
+    """The pictures Openverse finds for the words under the licences, or (None, why)."""
+    if _openverse_waiting(data_dir):
+        return None, "waiting"
+    with _OV_LOCK:
+        gap = OPENVERSE_GAP_S - (time.monotonic() - _OV_LAST[0])
+        if gap > 0:
+            time.sleep(gap)
+        _OV_LAST[0] = time.monotonic()
+    query = urllib.parse.urlencode(
         {
-            "method": "flickr.photos.search",
-            "api_key": key,
-            "text": text,
-            "license": ",".join(str(x) for x in licences),
-            "sort": "relevance",
-            "content_type": "1",
-            "media": "photos",
-            "safe_search": "1",
-            "per_page": "24",
-            "extras": "owner_name,license,url_l,url_c,url_m,description,tags",
-            "format": "json",
-            "nojsoncallback": "1",
+            "q": q,
+            "license": ",".join(licences),
+            "license_type": "modification",
+            "page_size": "20",
         }
     )
-    data, err = N.get_json(f"{FLICKR}?{q}", ua=ua, timeout=4)
-    if not isinstance(data, dict):
+    body, err = N.http(f"{OPENVERSE}?{query}", ua=ua, timeout=4)
+    if err == "HTTP 429" or err == "auth":
+        N.write(
+            _openverse_wait_file(data_dir),
+            json.dumps({"until": time.time() + OPENVERSE_WAIT_S}).encode(),
+        )
+        return None, "waiting"
+    if err or not body:
         return None, err or "no answer"
-    if data.get("stat") != "ok":
-        why = str(data.get("message") or "refused")[:80]
-        if int(_num(data.get("code"), 0)) in (100, 99, 98):
-            N.write(
-                _flickr_key_file(data_dir),
-                json.dumps({"ok": False, "at": time.time(), "why": why}).encode(),
-            )
-            return None, "key"
-        return None, why
-    photos = (data.get("photos") or {}).get("photo") or []
-    return [ph for ph in photos if isinstance(ph, dict)], ""
+    try:
+        data = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None, "not json"
+    results = data.get("results") if isinstance(data, dict) else None
+    if not isinstance(results, list):
+        return None, "no answer"
+    return [r for r in results if isinstance(r, dict)], ""
 
 
-def _flickr_pick(
-    photos: list[dict[str, Any]], imo: str, name: str, by_name: bool
+def _openverse_pick(
+    results: list[dict[str, Any]],
+    imo: str,
+    name: str,
+    by_name: bool,
 ) -> dict[str, str]:
-    """The best photo of the vessel among Flickr's answers: one that names the
+    """The best picture of the vessel among the answers: one that names the
     IMO number, or, found by name, one whose title or tags carry the whole
-    name and that says it is of a vessel; landscape and of a good size wins."""
+    name; landscape and of a good size wins."""
     name_l = " ".join(str(name or "").lower().split())
     best: tuple[float, dict[str, str]] | None = None
-    for ph in photos:
-        title = str(ph.get("title") or "")
-        desc = str((ph.get("description") or {}).get("_content") or "")
-        tags = str(ph.get("tags") or "").lower()
-        blob = f"{title} {desc} {tags}".lower()
-        if imo and imo not in blob:
-            if not by_name:
-                continue
+    for r in results:
+        title = str(r.get("title") or "")
+        tags = " ".join(
+            str(tg.get("name") or "")
+            for tg in (r.get("tags") or [])
+            if isinstance(tg, dict)
+        ).lower()
+        blob = f"{title} {tags}".lower()
+        if not by_name and imo and imo not in blob:
+            continue
         if by_name:
             if not name_l or not (
                 name_l in title.lower() or name_l.replace(" ", "") in tags.split()
             ):
                 continue
-            if not (imo and imo in blob) and not any(
-                re.search(rf"\b{re.escape(w)}s?\b", blob) for w in SEA_WORDS
-            ):
-                continue
-        src, w, h = "", 0.0, 0.0
-        for size in ("l", "c"):
-            if ph.get(f"url_{size}"):
-                src = str(ph[f"url_{size}"])
-                w, h = _num(ph.get(f"width_{size}")), _num(ph.get(f"height_{size}"))
-                break
-        if not src or w < 640 or h < 360:
+        src = str(r.get("url") or "")
+        w, h = _num(r.get("width")), _num(r.get("height"))
+        if not src or (w and w < 640) or (h and h < 360):
             continue
-        ratio = w / max(h, 1)
+        lic_id = str(r.get("license") or "").lower()
+        if lic_id not in OPENVERSE_LICENCES:
+            continue
+        lic = f"{OPENVERSE_LICENCES[lic_id]} {r.get('license_version') or ''}".strip()
+        ratio = w / h if w and h else 1.5
         score = (
             title_score(title, imo, name)
             + (2.0 if imo and imo in blob else 0.0)
             + min(ratio, 2.2)
             + (0.5 if 1.2 <= ratio <= 1.9 else 0)
+            + (0.3 if r.get("source") == "wikimedia" else 0)
         )
-        lic = FLICKR_LICENCES.get(int(_num(ph.get("license"), -1)), "")
-        if not lic:
-            continue
+        source = str(r.get("source") or "")
         cand = {
             "src": src,
-            "by": str(ph.get("ownername") or ph.get("owner") or "")[:80],
-            "lic": lic,
-            "link": f"https://www.flickr.com/photos/{ph.get('owner')}/{ph.get('id')}/",
+            "by": str(r.get("creator") or "")[:80],
+            "lic": lic[:40],
+            "link": str(r.get("foreign_landing_url") or ""),
             "w": str(int(w)),
             "h": str(int(h)),
-            "from": "flickr",
+            "from": "openverse",
+            "site": OPENVERSE_SITES.get(
+                source, source.replace("_", " ").title() or "Openverse"
+            ),
         }
         if best is None or score > best[0]:
             best = (score, cand)
     return best[1] if best else {}
 
 
-def flickr_photo(
-    key: str, imo: str, name: str, data_dir: Path, ua: str, nc: bool = True
+def openverse_photo(
+    imo: str, name: str, data_dir: Path, ua: str, nc: bool = True, strict: bool = False
 ) -> dict[str, str]:
-    """A photograph of the vessel on Flickr under a licence that allows a
-    painting to be made from it: by IMO number (the spotters put it in the
-    title), then by her name when it is distinctive enough. Kept a month, a
-    miss a week. ``nc`` admits the non-commercial licences too."""
-    key = str(key or "").strip()
+    """A photograph of the vessel through Openverse under a licence that allows
+    a painting to be made from it: by IMO number (the spotters put it in the
+    title), then by her name when it is distinctive enough and ``strict`` is
+    not set. Kept a month, a miss a week. ``nc`` admits the non-commercial
+    licences too."""
     imo = re.sub(r"\D", "", str(imo or ""))
     imo = "" if imo == "0" else imo
     name = " ".join(str(name or "").split())
-    if not key or not (imo or name):
+    if not (imo or (distinctive(name) and not strict)):
         return {}
     who = f"imo_{imo}" if imo else f"name_{N.slug(name)[:40]}"
-    cache = data_dir / "photos" / f"flickr_{who}{'' if nc else '_open'}.json"
+    cache = data_dir / "photos" / f"openverse_{who}{'' if nc else '_open'}.json"
     got = N.read_json(cache, None)
     if isinstance(got, dict) and time.time() - _num(got.get("at")) < (
         PHOTO_S if got.get("photo") else 7 * 86400
     ):
         return got.get("photo") or {}
-    bad = N.read_json(_flickr_key_file(data_dir), None)
-    if (
-        isinstance(bad, dict)
-        and not bad.get("ok", True)
-        and time.time() - _num(bad.get("at")) < FLICKR_KEY_S
-    ):
-        return {}
-    licences = FLICKR_OPEN + (FLICKR_NC if nc else ())
+    licences = OPENVERSE_OPEN + (OPENVERSE_NC if nc else ())
     queries: list[tuple[str, bool]] = []
     if imo:
         queries.append((f"IMO {imo}", False))
-    if name and (len(name) >= 8 or " " in name):
+    if distinctive(name) and not strict:
         queries.append((f'"{name}"', True))
     photo: dict[str, str] = {}
     asked = False
     for text, by_name in queries:
-        photos, why = _flickr_search(key, text, licences, ua, data_dir)
-        if photos is None:
-            if why in ("key", "unreachable"):
-                return {}
+        results, why = _openverse_search(text, licences, ua, data_dir)
+        if results is None:
+            if why in ("waiting", "unreachable"):
+                break
             continue
         asked = True
-        photo = _flickr_pick(photos, imo, name, by_name)
+        photo = _openverse_pick(results, imo, name, by_name)
         if photo:
             break
     if asked:

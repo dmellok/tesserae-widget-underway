@@ -2,9 +2,9 @@
   "tesserae_compat": "1.x",
   "tesserae_min": "0.463.0",
   "name": "Underway Core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "kind": "data",
-  "description": "The settings and the paintings page for the Underway widgets (underway_photo, underway_plate, underway_fleet, underway_scene): the aisstream.io key, the fal.ai key, a Flickr key for more photographs, your fleet notes, the daily painting budget and the contact for Wikimedia Commons. No widget of its own.",
+  "description": "The settings and the paintings page for the Underway widgets (underway_photo, underway_plate, underway_fleet, underway_scene): the aisstream.io key, the fal.ai key, which photograph licences, your fleet notes, the daily painting budget and the contact for Wikimedia Commons. No widget of its own.",
   "icon": "ph-anchor",
   "supports": {
     "sizes": []
@@ -30,29 +30,25 @@
       "help": "With a key the widgets can paint each vessel from her photograph, at about US$0.04 a painting, once per ship and style. Leave it blank to use the key under Settings › Generative AI. Without either the widgets show photographs."
     },
     {
-      "name": "flickr_api_key",
-      "type": "string",
-      "label": "Flickr API key (more photographs)",
-      "secret": true,
-      "default": "",
-      "help": "Free at https://www.flickr.com/services/apps/create (a non-commercial key). With one, a vessel Wikimedia Commons has no photograph of is looked up on Flickr, by IMO number and then by name, among photographs under a licence that allows a painting to be made from them; each is credited to the photographer and the licence on the page. Ship spotters photograph the tugs, ferries and pilot boats of a port that Commons never sees."
-    },
-    {
-      "name": "flickr_licences",
+      "name": "photo_licences",
       "type": "select",
-      "label": "Flickr licences",
+      "label": "Photographs",
       "default": "nc",
       "choices": [
         {
           "value": "nc",
-          "label": "Open and non-commercial: CC BY, BY-SA, BY-NC, BY-NC-SA, public domain"
+          "label": "Commons, then Openverse: open and non-commercial licences (CC BY, BY-SA, BY-NC, BY-NC-SA, public domain)"
         },
         {
           "value": "open",
-          "label": "Open only: CC BY, BY-SA, public domain"
+          "label": "Commons, then Openverse: open licences only (CC BY, BY-SA, public domain)"
+        },
+        {
+          "value": "commons",
+          "label": "Wikimedia Commons alone"
         }
       ],
-      "help": "A panel at home is non-commercial use. The ND licences, which forbid derivative works, are never used."
+      "help": "Openverse indexes the openly licensed pictures on Flickr, Wikimedia Commons and others, and answers without a key: ship spotters photograph the tugs, ferries and pilot boats of a port that Commons never sees. A panel at home is non-commercial use. The ND licences, which forbid derivative works, are never used. Each photograph is credited to the photographer, the site and the licence on the page."
     },
     {
       "name": "fleet_notes",

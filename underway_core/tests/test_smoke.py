@@ -50,7 +50,7 @@ PORT_MELBOURNE = {
     "longitude": 144.92,
     "location": {"label": "Port Melbourne", "timezone": "Australia/Melbourne"},
 }
-SETTINGS = {"fal_api_key": "k", "aisstream_key": "ais-key", "contact": "tester@example.com", "gen_daily_usd": "1"}
+SETTINGS = {"fal_api_key": "k", "aisstream_key": "ais-key", "contact": "tester@example.com", "gen_daily_usd": "1", "photo_licences": "commons"}
 # What a receiver (AIS-catcher) answers: a container ship, a tanker at anchor, a tug, a yacht, one far away, one without a position
 SHIPS = [
     {"mmsi": 219018271, "shipname": "MAERSK ELBA@@@", "callsign": "OWJH2", "imo": 9458054, "shiptype": 71, "lat": -37.86, "lon": 144.93, "speed": 12.4, "cog": 215, "heading": 214, "status": 0, "destination": "AU MEL", "eta_month": 10, "eta_day": 20, "eta_hour": 6, "eta_minute": 0, "to_bow": 250, "to_stern": 116, "to_port": 20, "to_starboard": 25, "draught": 13.2, "country": "DK", "last_signal": 12},
@@ -76,7 +76,7 @@ def _jpeg(w=600, h=400, blob=True, paper=(255, 255, 255)) -> bytes:
 
 
 class _Prompts:
-    """The prompts fal.ai got (live, by reference) and the Flickr searches made."""
+    """The prompts fal.ai got (live, by reference) and the Openverse searches made."""
 
     def __init__(self, prompts, flickr):
         self._p, self.flickr = prompts, flickr
@@ -117,30 +117,29 @@ def offline(monkeypatch):
             }}}).encode(), None
         if "upload.wikimedia.org" in url or "staticflickr.com" in url:
             return _jpeg(), None
-        if "api.flickr.com" in url:
+        if "api.openverse.org" in url:
             q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))
             flickr_calls.append(q)
-            if q["api_key"] != "fk":
-                return json.dumps({"stat": "fail", "code": 100, "message": "Invalid API Key (Key has invalid format)"}).encode(), None
-            lic = {int(x) for x in q["license"].split(",")}
+            lic = set(q["license"].split(","))
+            text = q["q"].upper()
             found = []
-            text = q["text"].upper()
             if text == '"SVITZER EUREKA"':
                 found = [
-                    {"id": "501", "owner": "11@N02", "ownername": "Port Spotter", "title": "Svitzer Eureka", "license": "2", "tags": "tug melbourne svitzereureka", "description": {"_content": "Svitzer's tug off Williamstown"}, "url_l": "https://live.staticflickr.com/501_b.jpg", "width_l": 1024, "height_l": 683},
-                    {"id": "502", "owner": "12@N02", "ownername": "Tower Fan", "title": "Eureka Tower at dusk", "license": "4", "tags": "melbourne skyline", "description": {"_content": ""}, "url_l": "https://live.staticflickr.com/502_b.jpg", "width_l": 1024, "height_l": 768},
+                    {"id": "501", "title": "Svitzer Eureka", "creator": "Port Spotter", "license": "by-nc", "license_version": "2.0", "source": "flickr", "tags": [{"name": "tug"}, {"name": "melbourne"}], "url": "https://live.staticflickr.com/501_b.jpg", "width": 1024, "height": 683, "foreign_landing_url": "https://www.flickr.com/photos/11@N02/501/"},
+                    {"id": "502", "title": "Eureka Tower at dusk", "creator": "Tower Fan", "license": "by", "license_version": "2.0", "source": "flickr", "tags": [{"name": "skyline"}], "url": "https://live.staticflickr.com/502_b.jpg", "width": 1024, "height": 768, "foreign_landing_url": "https://www.flickr.com/photos/12@N02/502/"},
                 ]
             elif text == '"LADY ANNE"':
-                found = [{"id": "503", "owner": "13@N02", "ownername": "A. Painter", "title": "Lady Anne", "license": "4", "tags": "portrait oil", "description": {"_content": "a portrait"}, "url_l": "https://live.staticflickr.com/503_b.jpg", "width_l": 1024, "height_l": 1400}]
+                found = [{"id": "503", "title": "Lady Anne", "creator": "A. Painter", "license": "by", "license_version": "2.0", "source": "flickr", "tags": [{"name": "portrait"}, {"name": "oil"}], "url": "https://live.staticflickr.com/503_b.jpg", "width": 1024, "height": 1400, "foreign_landing_url": "https://www.flickr.com/photos/13@N02/503/"}]
             elif text == "IMO 9312345":
-                found = [{"id": "504", "owner": "14@N02", "ownername": "Tanker Watch", "title": "NORDIC AURORA - IMO 9312345", "license": "5", "tags": "tanker imo9312345", "description": {"_content": ""}, "url_l": "https://live.staticflickr.com/504_b.jpg", "width_l": 1024, "height_l": 600}]
-            found = [f for f in found if int(f["license"]) in lic]
-            return json.dumps({"stat": "ok", "photos": {"page": 1, "photo": found}}).encode(), None
+                found = [{"id": "504", "title": "NORDIC AURORA - IMO 9312345", "creator": "Tanker Watch", "license": "by-sa", "license_version": "4.0", "source": "wikimedia", "tags": [], "url": "https://upload.wikimedia.org/aurora.jpg", "width": 1024, "height": 600, "foreign_landing_url": "https://commons.wikimedia.org/wiki/File:Aurora.jpg"}]
+            found = [f for f in found if f["license"] in lic]
+            return json.dumps({"result_count": len(found), "results": found}).encode(), None
         if "open-meteo" in url:
             return json.dumps({"current": {"weather_code": 61, "cloud_cover": 90, "is_day": 1, "wind_speed_10m": 20}, "daily": {"sunrise": ["2026-10-17T06:30"], "sunset": ["2026-10-17T19:40"]}}).encode(), None
         return None, "unreachable"
 
     monkeypatch.setattr(N, "http", fake_http)
+    monkeypatch.setattr(A, "OPENVERSE_GAP_S", 0.0)
     monkeypatch.setattr(A, "commons", None)  # the widget's own lookup; the host's has its own test below
 
     def fake_fal(url, body, key, timeout):
@@ -203,7 +202,7 @@ RECEIVER = {**PORT_MELBOURNE, "source": "receiver", "receiver_url": "http://pi.l
 def test_manifests_and_client_files():
     for wid in ("underway_core", "underway_photo", "underway_plate", "underway_fleet", "underway_scene"):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
-        assert m["version"] == "0.2.0" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
+        assert m["version"] == "0.2.1" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
         if m["kind"] == "widget":
             assert m["render"]["warm_ahead_s"] == 150
             assert (ROOT / wid / "client.js").exists()
@@ -525,37 +524,42 @@ def test_the_hosts_commons_lookup_is_used_when_there(tmp_path, offline, monkeypa
 
 
 # ----------------------------------------------------------------------
-# Flickr, the ranking and the words a vessel is painted from
+# Openverse, the ranking and the words a vessel is painted from
 # ----------------------------------------------------------------------
-FLICKR_SETTINGS = {**SETTINGS, "flickr_api_key": "fk", "fleet_notes": "# my regulars\nSvitzer *: dark blue hull, white wheelhouse, a red band on the funnel\nLADY ANNE: a white ketch with tan sails\n"}
+MORE_SETTINGS = {**SETTINGS, "photo_licences": "nc", "fleet_notes": "# my regulars\nSvitzer *: dark blue hull, white wheelhouse, a red band on the funnel\nLADY ANNE: a white ketch with tan sails\n"}
 
 
-def test_flickr_photographs_for_the_vessels_commons_lacks(tmp_path, offline, stream):
+def test_openverse_photographs_for_the_vessels_commons_lacks(tmp_path, offline, stream):
     prompts, _uas = offline
-    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos", "include_moored": "true"}, FLICKR_SETTINGS, ctx=_ctx(tmp_path))
+    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos", "include_moored": "true"}, MORE_SETTINGS, ctx=_ctx(tmp_path))
     by = {v["name"]: v for v in r["vessels"]}
     assert by["Maersk Elba"]["pic"]["credit"].endswith("(Wikimedia Commons, CC BY-SA 4.0)"), "Commons first"
     tug = by["Svitzer Eureka"]["pic"]
     assert tug and tug["kind"] == "photo" and tug["credit"] == "photo by Port Spotter (Flickr, CC BY-NC 2.0)" and tug["link"] == "https://www.flickr.com/photos/11@N02/501/"
-    tanker = A.flickr_photo("fk", "9312345", "Nordic Aurora", tmp_path / "f", "ua")
-    assert tanker["by"] == "Tanker Watch" and tanker["lic"] == "CC BY-SA 2.0" and tanker["from"] == "flickr", "by IMO number, for a ship Commons has no category for"
-    assert by["Lady Anne"]["pic"] is None, "a portrait called Lady Anne is not a ketch"
-    assert all("3" not in q["license"].split(",") and "6" not in q["license"].split(",") for q in prompts.flickr), "never the ND licences"
-    assert any(q["text"] == "IMO 9312345" for q in prompts.flickr) and any(q["text"] == '"Svitzer Eureka"' for q in prompts.flickr)
+    tanker = A.openverse_photo("9312345", "Nordic Aurora", tmp_path / "f", "ua")
+    assert tanker["by"] == "Tanker Watch" and tanker["lic"] == "CC BY-SA 4.0" and tanker["site"] == "Wikimedia Commons", "by IMO number, for a ship Commons has no category for"
+    assert by["Lady Anne"]["pic"] is None and not any(q["q"] == '"Lady Anne"' for q in prompts.flickr), "a yacht is never looked up by name: another Lady Anne is the likelier find"
+    assert A.openverse_photo("", "Lady Anne", tmp_path / "la", "ua", strict=False)["by"] == "A. Painter", "a commercial vessel's name is taken at its word"
+    assert all(q["license_type"] == "modification" and "by-nd" not in q["license"] for q in prompts.flickr), "never the ND licences"
+    assert any(q["q"] == "IMO 9312345" for q in prompts.flickr) and any(q["q"] == '"Svitzer Eureka"' for q in prompts.flickr)
     n = len(prompts.flickr)
-    fleet.fetch({**PORT_MELBOURNE, "pictures": "photos"}, FLICKR_SETTINGS, ctx=_ctx(tmp_path))
+    fleet.fetch({**PORT_MELBOURNE, "pictures": "photos"}, MORE_SETTINGS, ctx=_ctx(tmp_path))
     assert len(prompts.flickr) == n, "kept on disk; asked once"
-    assert A.flickr_photo("fk", "", "SVITZER EUREKA", tmp_path, "ua", nc=False) == {}, "open licences only: the BY-NC photo is passed over"
-    assert A.flickr_photo("fk", "", "Tug", tmp_path, "ua") == {}, "a short, plain name is never searched"
-    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos"}, {**FLICKR_SETTINGS, "flickr_api_key": "bad"}, ctx=_ctx(tmp_path / "b"))
-    assert any("Flickr refused the API key" in x for x in r["notices"])
+    assert A.openverse_photo("", "SVITZER EUREKA", tmp_path, "ua", nc=False) == {}, "open licences only: the BY-NC photo is passed over"
+    assert A.openverse_photo("", "Tug", tmp_path, "ua") == {} and not A.distinctive("Tug"), "a short, plain name is never searched"
+    N.write(A._openverse_wait_file(tmp_path / "w"), json.dumps({"until": time.time() + 60}).encode())
+    assert A.openverse_photo("", "Svitzer Eureka", tmp_path / "w", "ua") == {}
+    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos"}, MORE_SETTINGS, ctx=_ctx(tmp_path / "w"))
+    assert any("Openverse" in x for x in r["notices"]), "the allowance used up is said on the page"
+    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "photos"}, SETTINGS, ctx=_ctx(tmp_path / "c"))
+    assert {v["name"] for v in r["vessels"] if v["pic"]} == {"Maersk Elba", "Nordic Aurora"}, "Commons alone when the setting says so"
 
 
 def test_photographed_first_and_the_words_she_is_painted_from(tmp_path, offline, stream):
     prompts, _uas = offline
     r = plate.fetch({**PORT_MELBOURNE, "pictures": "paintings", "style": "linocut"}, SETTINGS, ctx=_ctx(tmp_path))
     assert r["vessels"][0]["shown_name"] == "Maersk Elba", "the nearest photographed vessel, not the nearest tug"
-    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "paintings", "style": "linocut", "count": "4", "include_moored": "false"}, FLICKR_SETTINGS | {"flickr_api_key": ""}, ctx=_ctx(tmp_path))
+    r = fleet.fetch({**PORT_MELBOURNE, "pictures": "paintings", "style": "linocut", "count": "4", "include_moored": "false"}, MORE_SETTINGS | {"photo_licences": "commons"}, ctx=_ctx(tmp_path))
     _settle()
     tug = next(p for p in prompts if "Svitzer Eureka" in p["prompt"])
     assert "harbour tug" in tug["prompt"] and "dark blue hull, white wheelhouse, a red band on the funnel" in tug["prompt"], "the fleet note, over the livery table"

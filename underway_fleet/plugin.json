@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Fleet",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "Everything on the water near a place on one page: each vessel painted from her photograph or her particulars and cut out, sized by her length, with a caption; or, with photographs, a log of cards. Twenty-eight styles, a style builder and your own prompt.",
@@ -141,14 +141,14 @@
       "choices": [
         {
           "value": "photos",
-          "label": "Photographs of the ship (Wikimedia Commons; Flickr with a key)"
+          "label": "Photographs of the ship (Wikimedia Commons and Openverse)"
         },
         {
           "value": "paintings",
           "label": "AI paintings, each from her photograph or her particulars"
         }
       ],
-      "help": "Photographs cost nothing: Wikimedia Commons by IMO number, and with a Flickr key in the Underway Core settings, Flickr by IMO number and by name under an open licence. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
+      "help": "Photographs cost nothing and need no key: Wikimedia Commons by IMO number, then Openverse (which indexes the openly licensed pictures on Flickr, Commons and others) by IMO number and by name. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
     },
     {
       "name": "ranking",
