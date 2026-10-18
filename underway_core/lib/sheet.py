@@ -37,6 +37,7 @@ def _sibling(name: str) -> Any:
 N = _sibling("net")
 A = _sibling("ais")
 P = _sibling("paint")
+W = _sibling("watch")
 
 WIDGETS = ("photo", "plate", "fleet", "scene")
 SOURCES = ("aisstream", "receiver")
@@ -55,7 +56,12 @@ LABELS = (
     "status",
     "length",
     "imo",
+    "seen",
 )
+PERIODS = ("now", "since")
+PAINTS = ("all", "photo")
+WATCH_STREAM_S = 20  # the stream is in memory: a look every so often costs nothing
+WATCH_RECEIVER_S = 30
 UNPAINTED = ("silhouette", "photo", "skip")
 RANKINGS = ("photos", "order")
 MAX_COUNT = 12
@@ -157,7 +163,18 @@ def shown_name(r: dict[str, Any]) -> str:
 
 
 def where_of(r: dict[str, Any]) -> str:
+    if r.get("closest_text"):
+        return f"closest {r['km']:g} km {compass(r['dir'])} at {r['closest_text']}"
     return f"{r['km']:g} km {compass(r['dir'])}"
+
+
+def seen_of(r: dict[str, Any]) -> str:
+    """When she was within reach: the span of a watched sighting, or how long
+    since a live one was heard."""
+    if r.get("seen_text"):
+        return r["seen_text"]
+    age = int(r.get("age_s") or 0)
+    return "heard just now" if age < 90 else f"heard {age // 60} min ago"
 
 
 def speed_of(r: dict[str, Any]) -> str:
@@ -206,6 +223,8 @@ def lines_for(r: dict[str, Any], labels: list[str]) -> list[str]:
             out.append(length_of(r))
         elif lab == "imo" and r.get("imo"):
             out.append(f"IMO {r['imo']}")
+        elif lab == "seen":
+            out.append(seen_of(r))
     return [x for x in out if x]
 
 
@@ -275,6 +294,67 @@ def visitor_row(
 # ----------------------------------------------------------------------
 # Held paintings, settling previews, the dashboards' records
 # ----------------------------------------------------------------------
+def watched(
+    options: dict[str, Any],
+    source: str,
+    api_key: str,
+    place: tuple[Any, ...],
+    radius: float,
+    data_dir: Path,
+    ua: str,
+    rows: list[dict[str, Any]],
+    now: datetime,
+    preview: bool,
+    base: dict[str, Any],
+    tz: Any,
+) -> list[dict[str, Any]]:
+    """Everything seen since this cell's last render: the watch on the place is
+    started or kept, what this render saw is noted on it, and the vessels in
+    the window come back at their closest approach, with when that was and
+    whether they are still within reach."""
+    receiver_url = str(options.get("receiver_url") or "")
+    lat, lon = place[0], place[1]
+    key = f"underway|{source}|{receiver_url}|{lat:.3f}|{lon:.3f}|{radius:g}"
+
+    def poll() -> list[dict[str, Any]]:
+        got, _err, _feed, _warming = A.nearby(
+            source, receiver_url, api_key, lat, lon, radius, data_dir, ua
+        )
+        return got
+
+    w = W.watch_for(
+        key,
+        poll,
+        WATCH_RECEIVER_S if source == "receiver" else WATCH_STREAM_S,
+        data_dir,
+        lambda r: str(r.get("mmsi") or ""),
+    )
+    ts = now.timestamp()
+    w.note(rows, ts)
+    t0 = W.window(data_dir, subject_id(options), ts, advance=not preview)
+    out = w.since(t0, ts)
+    for r in out:
+        here = ts - r["seen_last"] < A.STALE_S
+        r["closest_text"] = W.clock(r["closest_at"], tz)
+        r["seen_text"] = (
+            f"within reach since {W.clock(r['seen_first'], tz)}"
+            if here
+            else f"seen {W.clock(r['seen_first'], tz)} to {W.clock(r['seen_last'], tz)}"
+        )
+        r["present"] = here
+    since = W.clock(t0, tz)
+    base["period"] = f"since {since}"
+    base["since"] = t0
+    base["watch"] = {
+        "since": since,
+        "seen": len(out),
+        "polls": w.polls,
+        "error": w.error,
+        "present": sum(1 for r in out if r["present"]),
+    }
+    return out
+
+
 def subject_id(options: dict[str, Any]) -> str:
     return hashlib.sha1(
         json.dumps(
@@ -423,6 +503,7 @@ def fetch(
     photo_nc = licences != "open"
     notes = P.parse_notes(settings.get("fleet_notes"))
     ranking = _choice(options.get("ranking"), RANKINGS, "photos")
+    paint = _choice(options.get("paint"), PAINTS, "all")
     rows, err, feed, warming = A.nearby(
         source,
         str(options.get("receiver_url") or ""),
@@ -435,6 +516,22 @@ def fetch(
     )
     if err and not rows:
         return {**base, "state": "error", "error": err}
+    period = _choice(options.get("period"), PERIODS, "now")
+    if period == "since" and not err:
+        rows = watched(
+            options,
+            source,
+            api_key,
+            place,
+            radius,
+            data_dir,
+            ua,
+            rows,
+            now,
+            preview,
+            base,
+            tz,
+        )
     afloat = len(rows)
     base["afloat"] = afloat
     moving = [r for r in rows if r["moving"]]
@@ -599,6 +696,7 @@ def fetch(
     )
     whole_ = backdrop != "none" or style in P.OWN_PAPER
     from_words = 0
+    unreferenced = 0
     for r in shown:
         photo = r.get("photo") or {}
         pic: dict[str, Any] | None = None
@@ -619,7 +717,10 @@ def fetch(
                 else None
             )
             continue
-        if pictures == "paintings":
+        if pictures == "paintings" and paint == "photo" and not photo.get("src"):
+            # nothing is asked for without a photograph to paint from; she shows as the unpainted do
+            unreferenced += 1
+        elif pictures == "paintings":
             has_photo = bool(photo.get("src"))
             who = r["imo"] or r["mmsi"] or r["name"]
             words, trade = ("", "") if has_photo else P.words_for(r["name"], notes)
@@ -731,12 +832,24 @@ def fetch(
             status.append(
                 f"{from_words} painted from particulars alone, without a photograph"
             )
+        if unreferenced:
+            status.append(f"{unreferenced} without a photograph, left unpainted")
         art.finish(ctx, facet=style)
     if err:
         notices.append(err)
     note = A.listener_note(source, api_key, place[0], place[1], radius)
     if note:
         notices.append(note)
+    if base.get("watch"):
+        wv = base["watch"]
+        status.insert(
+            0,
+            f"{wv['seen']} seen since {wv['since']}, {wv['present']} within reach now"
+            if wv["seen"]
+            else f"nothing seen since {wv['since']}",
+        )
+        if wv.get("error"):
+            notices.append(f"the watch between renders: {wv['error']}")
     note = A.openverse_note(data_dir) if more_photos else ""
     if note:
         notices.append(note)

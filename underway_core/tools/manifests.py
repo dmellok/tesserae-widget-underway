@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = "0.2.2"
+VERSION = "0.3.0"
 TESSERAE_MIN = "0.463.0"
 
 _spec = _ilu.spec_from_file_location("_tesserae_plugins.underway_core.paint", ROOT / "underway_core" / "lib" / "paint.py")
@@ -46,6 +46,7 @@ def where_options():
         sel("radius_km", "Within", "25", [(v, f"{v} km") for v in ("5", "10", "15", "25", "35", "50", "80")]),
         {"name": "include_moored", "type": "boolean", "label": "Include vessels moored or at anchor", "default": True},
         sel("order", "Order", "nearest", [("nearest", "Nearest first"), ("largest", "Largest first"), ("fastest", "Fastest first"), ("moving", "Under way first")]),
+        sel("period", "Show", "now", [("now", "What is within reach now"), ("since", "Everything that passed since the last render")], help="Since the last render keeps a watch on the place between renders (the stream every twenty seconds, a receiver every thirty) and shows every vessel seen since the page was last drawn for a panel, each at her closest approach with the time, so a page drawn every hour is the hour's traffic rather than one moment of it. The order and the count apply to what was seen. The editor's previews show the same window without moving it on; the watch stops three hours after a page last asked, and a first render shows the last hour."),
     ]
 
 
@@ -53,6 +54,7 @@ def picture_options(with_backdrop: bool, many: bool, scene: bool = False):
     show = {"pictures": "paintings"}
     out = [
         sel("pictures", "Pictures", "photos", [("photos", "Photographs of the ship (Wikimedia Commons and Openverse)"), ("paintings", "AI paintings, each from her photograph or her particulars")], help="Photographs cost nothing and need no key: Wikimedia Commons by IMO number, then Openverse (which indexes the openly licensed pictures on Flickr, Commons and others) by IMO number and by name. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."),
+        sel("paint", "Paint", "all", [("all", "Every vessel: from her photograph, or from her particulars where there is none"), ("photo", "Only vessels with a photograph: the rest are left unpainted")], show_if={"pictures": "paintings"}, help="A vessel no photograph can be found for is otherwise painted from what AIS says of her and your fleet notes, and marked an impression. Only vessels with a photograph asks for no such painting: she shows as the setting below says for a vessel not yet painted, and nothing is spent on her."),
         sel("ranking", "Which vessels", "photos", [("photos", "Photographed first: within the order above, those with a photograph lead"), ("order", "The order above alone")], help="Photographed first looks twice as deep as the page shows and brings the vessels with a photograph to the front, so the page is not silhouettes and impressions while a photographed ship sits just beyond the count."),
         sel("style", "Style", "poster", STYLES, show_if=show),
         {"name": "custom_style", "type": "textarea", "label": "Your own prompt", "default": "", "show_if": {"pictures": "paintings", "style": "custom"}, "presets": PRESETS, "help": "The medium and the look; the widget adds the vessel, her photograph and the paper. Pick an example above to start from."},
@@ -76,7 +78,7 @@ def picture_options(with_backdrop: bool, many: bool, scene: bool = False):
 
 def page_options(labels_default):
     return [
-        {"name": "labels", "type": "multiselect", "label": "Label lines", "default": labels_default, "help": "In this order, under or beside each vessel.", "choices": [{"value": v, "label": l} for v, l in [("type", "Type"), ("flag", "Flag"), ("dest", "Destination and ETA"), ("speed", "Speed"), ("distance", "Distance and bearing"), ("course", "Course"), ("status", "Navigational status"), ("length", "Length and beam"), ("imo", "IMO number")]]},
+        {"name": "labels", "type": "multiselect", "label": "Label lines", "default": labels_default, "help": "In this order, under or beside each vessel.", "choices": [{"value": v, "label": l} for v, l in [("type", "Type"), ("flag", "Flag"), ("dest", "Destination and ETA"), ("speed", "Speed"), ("distance", "Distance and bearing"), ("course", "Course"), ("status", "Navigational status"), ("length", "Length and beam"), ("imo", "IMO number"), ("seen", "When she was within reach")]]},
         {"name": "title", "type": "string", "label": "Title", "default": "", "help": "Blank uses the place."},
         sel("header", "Title line", "top", [("top", "Above the page"), ("bottom", "Below the page"), ("hidden", "Hidden")]),
         sel("footer", "Foot of the page", "show", [("show", "Status and credits"), ("credits", "Credits only"), ("hide", "Nothing")]),

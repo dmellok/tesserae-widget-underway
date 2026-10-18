@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Photo",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "The nearest vessel to a place, right now, as a full-bleed photograph of the very ship (Wikimedia Commons) with her name, type, flag, destination, speed and distance, and the next few along a strip. Positions from aisstream.io or a receiver of your own.",
@@ -127,6 +127,23 @@
       ]
     },
     {
+      "name": "period",
+      "type": "select",
+      "label": "Show",
+      "default": "now",
+      "choices": [
+        {
+          "value": "now",
+          "label": "What is within reach now"
+        },
+        {
+          "value": "since",
+          "label": "Everything that passed since the last render"
+        }
+      ],
+      "help": "Since the last render keeps a watch on the place between renders (the stream every twenty seconds, a receiver every thirty) and shows every vessel seen since the page was last drawn for a panel, each at her closest approach with the time, so a page drawn every hour is the hour's traffic rather than one moment of it. The order and the count apply to what was seen. The editor's previews show the same window without moving it on; the watch stops three hours after a page last asked, and a first render shows the last hour."
+    },
+    {
       "name": "strip",
       "type": "number",
       "label": "More vessels along the strip",
@@ -196,6 +213,10 @@
         {
           "value": "imo",
           "label": "IMO number"
+        },
+        {
+          "value": "seen",
+          "label": "When she was within reach"
         }
       ]
     },

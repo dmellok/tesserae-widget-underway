@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Plate",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "One vessel near you as a plate: painted from her own photograph in a style of your choosing, in a ruled frame, with her particulars beside her; or one of four modern looks in the colours of her trade. Her photograph until the painting lands, or without a fal.ai key.",
@@ -127,6 +127,23 @@
       ]
     },
     {
+      "name": "period",
+      "type": "select",
+      "label": "Show",
+      "default": "now",
+      "choices": [
+        {
+          "value": "now",
+          "label": "What is within reach now"
+        },
+        {
+          "value": "since",
+          "label": "Everything that passed since the last render"
+        }
+      ],
+      "help": "Since the last render keeps a watch on the place between renders (the stream every twenty seconds, a receiver every thirty) and shows every vessel seen since the page was last drawn for a panel, each at her closest approach with the time, so a page drawn every hour is the hour's traffic rather than one moment of it. The order and the count apply to what was seen. The editor's previews show the same window without moving it on; the watch stops three hours after a page last asked, and a first render shows the last hour."
+    },
+    {
       "name": "pictures",
       "type": "select",
       "label": "Pictures",
@@ -142,6 +159,26 @@
         }
       ],
       "help": "Photographs cost nothing and need no key: Wikimedia Commons by IMO number, then Openverse (which indexes the openly licensed pictures on Flickr, Commons and others) by IMO number and by name. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
+    },
+    {
+      "name": "paint",
+      "type": "select",
+      "label": "Paint",
+      "default": "all",
+      "choices": [
+        {
+          "value": "all",
+          "label": "Every vessel: from her photograph, or from her particulars where there is none"
+        },
+        {
+          "value": "photo",
+          "label": "Only vessels with a photograph: the rest are left unpainted"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      },
+      "help": "A vessel no photograph can be found for is otherwise painted from what AIS says of her and your fleet notes, and marked an impression. Only vessels with a photograph asks for no such painting: she shows as the setting below says for a vessel not yet painted, and nothing is spent on her."
     },
     {
       "name": "ranking",
@@ -911,6 +948,10 @@
         {
           "value": "imo",
           "label": "IMO number"
+        },
+        {
+          "value": "seen",
+          "label": "When she was within reach"
         }
       ]
     },
