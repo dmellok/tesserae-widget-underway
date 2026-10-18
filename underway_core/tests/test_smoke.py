@@ -202,7 +202,7 @@ RECEIVER = {**PORT_MELBOURNE, "source": "receiver", "receiver_url": "http://pi.l
 def test_manifests_and_client_files():
     for wid in ("underway_core", "underway_photo", "underway_plate", "underway_fleet", "underway_scene"):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
-        assert m["version"] == "0.2.1" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
+        assert m["version"] == "0.2.2" and m["tesserae_compat"] == "1.x" and m["tesserae_min"] == "0.463.0"
         if m["kind"] == "widget":
             assert m["render"]["warm_ahead_s"] == 150
             assert (ROOT / wid / "client.js").exists()
