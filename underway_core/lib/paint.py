@@ -1456,8 +1456,12 @@ def make(job: Any) -> tuple[bytes, dict[str, Any]]:
     )
     meta = {
         "mmsi": j.get("mmsi"),
+        "imo": j.get("imo") or "",
         "name": j.get("name"),
         "typ": j.get("typ"),
+        "cls": j.get("cls") or "",
+        "len": j.get("len") or 0,
+        "beam": j.get("beam") or 0,
         "flag": j.get("flag"),
         "style": j.get("style"),
         "how": j.get("how") or "",

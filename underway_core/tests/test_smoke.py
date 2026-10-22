@@ -450,7 +450,7 @@ def test_manifests_and_client_files():
     ):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
         assert (
-            m["version"] == "0.4.0"
+            m["version"] == "0.5.0"
             and m["tesserae_compat"] == "1.x"
             and m["tesserae_min"] == "0.463.0"
         )
@@ -1601,3 +1601,92 @@ def test_the_catalogue_counts_passes(tmp_path, offline):
     fleet.fetch({**RECEIVER, "pictures": "photos"}, SETTINGS, ctx=_ctx(tmp_path))
     st = core.sightings_context(tmp_path)["s"]
     assert st["airframes"] >= 1 and st["passes"] >= 1 and st["painted"] == 0
+
+
+def test_a_spent_budget_fills_the_fleet_from_the_collection(tmp_path, offline):
+    prompts = offline[0]
+    kept = {"9000101": 5, "9000102": 1, "9000103": 2}
+    for imo in kept:
+        P.ART.keep(
+            P.key_for(imo, "poster"),
+            tmp_path,
+            _jpeg(paper=(252, 250, 246)),
+            {
+                "imo": imo,
+                "mmsi": f"5030{imo[-3:]}",
+                "name": f"Kept {imo[-1]}",
+                "typ": "Cargo ship",
+                "flag": "Australia",
+                "len": 180,
+                "style": "poster",
+                "backdrop": "none",
+                "credit": f"painted from IMO {imo}",
+            },
+        )
+    P.ART.keep(  # another style is not this page's
+        P.key_for("9000104", "linocut"),
+        tmp_path,
+        _jpeg(paper=(252, 250, 246)),
+        {"imo": "9000104", "typ": "Tug", "style": "linocut", "backdrop": "none"},
+    )
+    P.ART.keep(  # nor is a whole picture on a backdrop: the fleet cuts out
+        P.key_for("9000105", "poster", "sea"),
+        tmp_path,
+        _jpeg(paper=(252, 250, 246)),
+        {"imo": "9000105", "typ": "Tug", "style": "poster", "backdrop": "sea"},
+    )
+    led = S.SG.ledger(tmp_path)
+    for imo, passes in kept.items():
+        for i in range(passes):
+            led.note(
+                [{"imo": imo, "name": f"Kept {imo[-1]}", "typ": "Cargo ship"}],
+                S.SIGHT_ID,
+                S.SIGHT_NAME,
+                now=1000 + i * 4000,
+            )
+    P.ART.spend(tmp_path, 100)
+    options = {
+        **RECEIVER,
+        "pictures": "paintings",
+        "style": "poster",
+        "count": "4",
+        "labels": ["type", "length", "imo"],
+        "when_spent": "rare",
+    }
+    r = fleet.fetch(options, SETTINGS, ctx=_ctx(tmp_path))
+    assert not prompts, "nothing is painted once the budget is spent"
+    vs = r["vessels"]
+    assert [v["imo"] for v in vs[:3]] == ["9000102", "9000103", "9000101"], (
+        "the rarest first, every one cut out"
+    )
+    assert all(v["pic"]["kind"] == "painting" and not v["pic"]["whole"] for v in vs[:3])
+    assert all(
+        v["kept"] and v["cls"] == "cargo" and v["len"] == 180 and v["shown_name"]
+        for v in vs[:3]
+    ), "everything the fleet page reads"
+    assert len({v["mmsi"] for v in vs[:3]}) == 3
+    assert vs[0]["lines"][:3] == ["Cargo ship", "180 m", "IMO 9000102"]
+    assert vs[0]["lines"][-1].startswith("seen once") and vs[2]["lines"][-1].startswith(
+        "seen 5 times"
+    )
+    assert len(vs) == 4 and vs[3]["pic"] is None and not vs[3].get("kept"), (
+        "a gap the collection could not fill stays"
+    )
+    assert (
+        r["period"] == "from the collection"
+        and "painted from IMO 9000102" in (r["credits"])
+    )
+    assert any("from the collection" in s for s in r["status"])
+    # at random: the same three for the hour, in an order of their own
+    a = fleet.fetch({**options, "when_spent": "random"}, SETTINGS, ctx=_ctx(tmp_path))
+    b = fleet.fetch({**options, "when_spent": "random"}, SETTINGS, ctx=_ctx(tmp_path))
+    assert [x["shown_name"] for x in a["vessels"]] == [
+        x["shown_name"] for x in b["vessels"]
+    ]
+    assert sorted(x["imo"] for x in a["vessels"][:3]) == sorted(kept)
+    # left alone, the page is as it was: what is passing, unpainted
+    r = fleet.fetch({**options, "when_spent": "keep"}, SETTINGS, ctx=_ctx(tmp_path))
+    assert (
+        not any(v.get("kept") for v in r["vessels"])
+        and r["period"] == "on the water now"
+    )

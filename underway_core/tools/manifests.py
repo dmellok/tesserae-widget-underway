@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 TESSERAE_MIN = "0.463.0"
 
 _spec = _ilu.spec_from_file_location("_tesserae_plugins.underway_core.paint", ROOT / "underway_core" / "lib" / "paint.py")
@@ -36,6 +36,19 @@ MODELS = [(k, f"{v['label']} ({v['cost']})") for k, v in _paint.MODELS.items()]
 
 def sel(name, label, default, choices, **kw):
     return {"name": name, "type": "select", "label": label, "default": default, "choices": [{"value": v, "label": l} for v, l in choices], **kw}
+
+
+SAMPLES = ROOT / "underway_core" / "static" / "styles"
+
+
+def with_samples(option):
+    """Each style with a sample painting (tools/style_previews.py) shows it in the editor's picker."""
+    for c in option["choices"]:
+        if (SAMPLES / f"{c['value']}.jpg").exists():
+            c["image"] = f"/plugins/underway_core/static/styles/{c['value']}.jpg"
+            if (SAMPLES / "large" / f"{c['value']}.jpg").exists():
+                c["image_large"] = f"/plugins/underway_core/static/styles/large/{c['value']}.jpg"
+    return option
 
 
 def where_options():
@@ -56,7 +69,7 @@ def picture_options(with_backdrop: bool, many: bool, scene: bool = False):
         sel("pictures", "Pictures", "photos", [("photos", "Photographs of the ship (Wikimedia Commons and Openverse)"), ("paintings", "AI paintings, each from her photograph or her particulars")], help="Photographs cost nothing and need no key: Wikimedia Commons by IMO number, then Openverse (which indexes the openly licensed pictures on Flickr, Commons and others) by IMO number and by name. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."),
         sel("paint", "Paint", "all", [("all", "Every vessel: from her photograph, or from her particulars where there is none"), ("photo", "Only vessels with a photograph: the rest are left unpainted")], show_if={"pictures": "paintings"}, help="A vessel no photograph can be found for is otherwise painted from what AIS says of her and your fleet notes, and marked an impression. Only vessels with a photograph asks for no such painting: she shows as the setting below says for a vessel not yet painted, and nothing is spent on her."),
         sel("ranking", "Which vessels", "photos", [("photos", "Photographed first: within the order above, those with a photograph lead"), ("order", "The order above alone")], help="Photographed first looks twice as deep as the page shows and brings the vessels with a photograph to the front, so the page is not silhouettes and impressions while a photographed ship sits just beyond the count."),
-        sel("style", "Style", "poster", STYLES, show_if=show),
+        with_samples(sel("style", "Style", "poster", STYLES, show_if=show)),
         {"name": "custom_style", "type": "textarea", "label": "Your own prompt", "default": "", "show_if": {"pictures": "paintings", "style": "custom"}, "presets": PRESETS, "help": "The medium and the look; the widget adds the vessel, her photograph and the paper. Pick an example above to start from."},
     ]
     for name, (label, default, choices) in BUILDER.items():
@@ -71,6 +84,7 @@ def picture_options(with_backdrop: bool, many: bool, scene: bool = False):
     out.append({"name": "visitors", "type": "multiselect", "label": "Who visits", "default": _paint.monster_choices("myth"), "show_if": {"pictures": "paintings", "visitor": {"not": 0}}, "help": "Tick the visitors the roll may bring: creatures of myth, vessels of story (described to the painter by their look, never named) and real ships of history. With nothing ticked, the creatures of myth.", "choices": [{"value": k, "label": f"{_paint.POOL_LABELS[v[2]]}: {v[0]}"} for k, v in _paint.MONSTERS.items()]})
     if many:
         out.append(sel("unpainted", "Until a vessel is painted", "silhouette", [("silhouette", "Show a silhouette"), ("photo", "Show her photograph"), ("skip", "Only painted vessels: leave the rest off the page")], show_if=show, help="Only painted vessels shows a page of paintings alone; it says so while the first are being painted."))
+        out.append(sel("when_spent", "When the day's budget is spent", "keep", [("keep", "Keep showing what is passing"), ("random", "Fill the gaps with paintings already kept, at random"), ("rare", "Fill the gaps with the rarest ones seen")], show_if=show, help="Once to-day's painting budget is spent, the vessels that could not be painted give way to paintings this widget already kept in the same style: a different handful each hour, or the ones seen fewest times first. Their labels say when each was last seen. Nothing is spent on them."))
     else:
         out.append(sel("unpainted", "Until the vessel is painted", "photo", [("photo", "Show her photograph"), ("silhouette", "Show a silhouette"), ("skip", "Only a painted vessel: the nearest one already painted")], show_if=show, help="Only a painted vessel looks among the nearest six for one already painted and keeps painting them, so the page has one most of the time; it says so until the first lands."))
     return out

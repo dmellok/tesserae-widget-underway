@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Fleet",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "Everything on the water near a place on one page: each vessel painted from her photograph or her particulars and cut out, sized by her length, with a caption; or, with photographs, a log of cards. Twenty-eight styles, a style builder and your own prompt.",
@@ -212,115 +212,171 @@
       "choices": [
         {
           "value": "poster",
-          "label": "Vintage shipping-line poster"
+          "label": "Vintage shipping-line poster",
+          "image": "/plugins/underway_core/static/styles/poster.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/poster.jpg"
         },
         {
           "value": "engraving_colour",
-          "label": "Hand-coloured engraving"
+          "label": "Hand-coloured engraving",
+          "image": "/plugins/underway_core/static/styles/engraving_colour.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/engraving_colour.jpg"
         },
         {
           "value": "engraving",
-          "label": "Black-ink engraving"
+          "label": "Black-ink engraving",
+          "image": "/plugins/underway_core/static/styles/engraving.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/engraving.jpg"
         },
         {
           "value": "technical",
-          "label": "Shipyard profile drawing"
+          "label": "Shipyard profile drawing",
+          "image": "/plugins/underway_core/static/styles/technical.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/technical.jpg"
         },
         {
           "value": "watercolour",
-          "label": "Loose watercolour"
+          "label": "Loose watercolour",
+          "image": "/plugins/underway_core/static/styles/watercolour.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/watercolour.jpg"
         },
         {
           "value": "woodblock",
-          "label": "Japanese woodblock print"
+          "label": "Japanese woodblock print",
+          "image": "/plugins/underway_core/static/styles/woodblock.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/woodblock.jpg"
         },
         {
           "value": "linocut",
-          "label": "Linocut"
+          "label": "Linocut",
+          "image": "/plugins/underway_core/static/styles/linocut.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/linocut.jpg"
         },
         {
           "value": "deco",
-          "label": "Art Deco liner poster"
+          "label": "Art Deco liner poster",
+          "image": "/plugins/underway_core/static/styles/deco.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/deco.jpg"
         },
         {
           "value": "midcentury",
-          "label": "Mid-century flat illustration"
+          "label": "Mid-century flat illustration",
+          "image": "/plugins/underway_core/static/styles/midcentury.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/midcentury.jpg"
         },
         {
           "value": "pencil",
-          "label": "Pencil study"
+          "label": "Pencil study",
+          "image": "/plugins/underway_core/static/styles/pencil.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/pencil.jpg"
         },
         {
           "value": "pointillism",
-          "label": "Pointillism"
+          "label": "Pointillism",
+          "image": "/plugins/underway_core/static/styles/pointillism.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/pointillism.jpg"
         },
         {
           "value": "blueprint",
-          "label": "Blueprint"
+          "label": "Blueprint",
+          "image": "/plugins/underway_core/static/styles/blueprint.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/blueprint.jpg"
         },
         {
           "value": "cutaway",
-          "label": "Magazine cutaway"
+          "label": "Magazine cutaway",
+          "image": "/plugins/underway_core/static/styles/cutaway.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/cutaway.jpg"
         },
         {
           "value": "stamp",
-          "label": "Postage stamp"
+          "label": "Postage stamp",
+          "image": "/plugins/underway_core/static/styles/stamp.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/stamp.jpg"
         },
         {
           "value": "tattoo",
-          "label": "Sailor's tattoo flash"
+          "label": "Sailor's tattoo flash",
+          "image": "/plugins/underway_core/static/styles/tattoo.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/tattoo.jpg"
         },
         {
           "value": "riso",
-          "label": "Risograph"
+          "label": "Risograph",
+          "image": "/plugins/underway_core/static/styles/riso.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/riso.jpg"
         },
         {
           "value": "pixel",
-          "label": "Pixel art"
+          "label": "Pixel art",
+          "image": "/plugins/underway_core/static/styles/pixel.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/pixel.jpg"
         },
         {
           "value": "lowpoly",
-          "label": "Low-poly render"
+          "label": "Low-poly render",
+          "image": "/plugins/underway_core/static/styles/lowpoly.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/lowpoly.jpg"
         },
         {
           "value": "papercraft",
-          "label": "Paper craft"
+          "label": "Paper craft",
+          "image": "/plugins/underway_core/static/styles/papercraft.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/papercraft.jpg"
         },
         {
           "value": "toybrick",
-          "label": "Toy bricks"
+          "label": "Toy bricks",
+          "image": "/plugins/underway_core/static/styles/toybrick.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/toybrick.jpg"
         },
         {
           "value": "bottle",
-          "label": "Ship in a bottle"
+          "label": "Ship in a bottle",
+          "image": "/plugins/underway_core/static/styles/bottle.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/bottle.jpg"
         },
         {
           "value": "charcoal",
-          "label": "Charcoal"
+          "label": "Charcoal",
+          "image": "/plugins/underway_core/static/styles/charcoal.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/charcoal.jpg"
         },
         {
           "value": "stained_glass",
-          "label": "Stained glass"
+          "label": "Stained glass",
+          "image": "/plugins/underway_core/static/styles/stained_glass.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/stained_glass.jpg"
         },
         {
           "value": "gilt",
-          "label": "Illuminated manuscript"
+          "label": "Illuminated manuscript",
+          "image": "/plugins/underway_core/static/styles/gilt.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/gilt.jpg"
         },
         {
           "value": "scrimshaw",
-          "label": "Scrimshaw"
+          "label": "Scrimshaw",
+          "image": "/plugins/underway_core/static/styles/scrimshaw.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/scrimshaw.jpg"
         },
         {
           "value": "pulp",
-          "label": "Pulp cover"
+          "label": "Pulp cover",
+          "image": "/plugins/underway_core/static/styles/pulp.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/pulp.jpg"
         },
         {
           "value": "synthwave",
-          "label": "Synthwave"
+          "label": "Synthwave",
+          "image": "/plugins/underway_core/static/styles/synthwave.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/synthwave.jpg"
         },
         {
           "value": "chalk",
-          "label": "Chalkboard"
+          "label": "Chalkboard",
+          "image": "/plugins/underway_core/static/styles/chalk.jpg",
+          "image_large": "/plugins/underway_core/static/styles/large/chalk.jpg"
         },
         {
           "value": "builder",
@@ -860,6 +916,30 @@
         "pictures": "paintings"
       },
       "help": "Only painted vessels shows a page of paintings alone; it says so while the first are being painted."
+    },
+    {
+      "name": "when_spent",
+      "type": "select",
+      "label": "When the day's budget is spent",
+      "default": "keep",
+      "choices": [
+        {
+          "value": "keep",
+          "label": "Keep showing what is passing"
+        },
+        {
+          "value": "random",
+          "label": "Fill the gaps with paintings already kept, at random"
+        },
+        {
+          "value": "rare",
+          "label": "Fill the gaps with the rarest ones seen"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      },
+      "help": "Once to-day's painting budget is spent, the vessels that could not be painted give way to paintings this widget already kept in the same style: a different handful each hour, or the ones seen fewest times first. Their labels say when each was last seen. Nothing is spent on them."
     },
     {
       "name": "scale",

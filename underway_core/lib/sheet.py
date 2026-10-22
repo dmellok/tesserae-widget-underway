@@ -69,6 +69,9 @@ PAINTS = ("all", "photo")
 WATCH_STREAM_S = 20  # the stream is in memory: a look every so often costs nothing
 WATCH_RECEIVER_S = 30
 UNPAINTED = ("silhouette", "photo", "skip")
+# the fleet, when the day's budget is spent: the vessels that could not be painted give way to
+# paintings already kept, chosen at random or the rarest seen first
+SPENT = ("keep", "random", "rare")
 RANKINGS = ("photos", "order")
 MAX_COUNT = 12
 POOL = 6
@@ -113,6 +116,7 @@ LOOK_OPTIONS = frozenset(
         "photo_fit",
         "colours",
         "look",
+        "when_spent",
     )
 )
 
@@ -359,6 +363,142 @@ def watched(
         "error": w.error,
         "present": sum(1 for r in out if r["present"]),
     }
+    return out
+
+
+def _when(t: float, now: datetime) -> str:
+    d = (
+        datetime.fromtimestamp(t, now.tzinfo)
+        if now.tzinfo
+        else datetime.fromtimestamp(t)
+    )
+    return d.strftime("%-d %b" if sys.platform != "win32" else "%d %b")
+
+
+# a kept painting's type to her class, for the silhouette and the size on the fleet page
+TYPE_CLASS = {
+    **{label: cls for _lo, _hi, label, cls in A._RANGES},
+    **dict(A._TYPES.values()),
+}
+
+
+def from_collection(
+    art: Any,
+    data_dir: Path,
+    *,
+    style: str,
+    exclude: set[str],
+    n: int,
+    mode: str,
+    seed: str,
+    labels: list[str],
+    px: int,
+    panel: str,
+    whole_: bool,
+    deadline: float,
+    now: datetime,
+) -> list[dict[str, Any]]:
+    """Up to ``n`` kept paintings in this style, for the gaps a spent budget
+    leaves on the fleet: in an order of their own that holds for the hour
+    (random), or those seen fewest times first (rare). One per vessel, none
+    already on the page, each cut out (the fleet's backdrop is always none).
+    Cutting out a painting never cut before stops at the deadline; those
+    already cut keep coming."""
+    c = art.c
+    if c is None or n <= 0:
+        return []
+    led = SG.ledger(data_dir)
+    with led.lock:
+        seen = {N.slug(k): dict(v) for k, v in led.seen.items()}
+    folder = c.folder(data_dir)
+    # the first part of a painting's key is the slug of her IMO, MMSI or name: the ledger's id
+    found: dict[str, tuple[str, dict[str, Any]]] = {}
+    with contextlib.suppress(OSError):
+        for f in sorted(folder.iterdir()):
+            if f.suffix not in (".jpg", ".png") or "__" in f.stem or not f.is_file():
+                continue
+            ident = f.stem.split("--")[0]
+            if not ident or ident.startswith("visitor_"):
+                continue
+            meta = c.meta(f.stem, data_dir)
+            if (
+                meta.get("monster")
+                or meta.get("style") != style
+                or (meta.get("backdrop") or "none") != "none"
+            ):
+                continue
+            mmsi = N.slug(str(meta.get("mmsi") or ""))
+            if ident in exclude or ident in found or (mmsi and mmsi in exclude):
+                continue
+            found[ident] = (f.stem, meta)
+    rng = random.Random(f"{seed}|{now.strftime('%Y-%m-%d %H')}")
+    order = sorted(found)
+    rng.shuffle(order)
+    if mode == "rare":
+        order.sort(key=lambda s: int((seen.get(s) or {}).get("v") or 1))
+    out: list[dict[str, Any]] = []
+    taken: set[str] = set()
+    for s in order:
+        if len(out) >= n:
+            break
+        key, meta = found[s]
+        mmsi = str(meta.get("mmsi") or "")
+        if mmsi and N.slug(mmsi) in taken:
+            continue  # the same vessel, painted once by her MMSI and once by her IMO
+        if (
+            not whole_
+            and time.time() > deadline
+            and not (folder / f"{key}__cut{P.CUT_VERSION}.png").exists()
+        ):
+            continue
+        pic = P.picture(art, key, px, panel, whole_)
+        if not pic:
+            continue
+        pic["impression"] = "--words" in key
+        taken.update(x for x in (s, N.slug(mmsi)) if x)
+        typ = str(meta.get("typ") or "Vessel")
+        cls = str(
+            meta.get("cls") or TYPE_CLASS.get(typ.split(" carrying ")[0]) or "other"
+        )
+        imo = str(meta.get("imo") or "")
+        r: dict[str, Any] = {
+            "mmsi": mmsi,
+            "name": str(meta.get("name") or ""),
+            "imo": imo,
+            "typ": typ,
+            "cls": cls,
+            "flag": str(meta.get("flag") or ""),
+            "len": int(meta.get("len") or 0),
+            "beam": int(meta.get("beam") or 0),
+        }
+        r["shown_name"] = shown_name(r)
+        e = seen.get(s) or {}
+        v = int(e.get("v") or 0)
+        when = (
+            f"seen once, {_when(float(e['l']), now)}"
+            if v == 1 and e.get("l")
+            else f"seen {v} times, last {_when(float(e['l']), now)}"
+            if v and e.get("l")
+            else "from the collection"
+        )
+        lines: list[str] = []
+        for lab in labels:
+            if lab == "type":
+                lines.append(typ)
+            elif lab == "flag" and r["flag"]:
+                lines.append(r["flag"])
+            elif lab == "length" and length_of(r):
+                lines.append(length_of(r))
+            elif lab == "imo" and imo:
+                lines.append(f"IMO {imo}")
+        r.update(
+            lines=lines + [when],
+            sil=f"/plugins/underway_core/static/sil/{cls}.svg",
+            pic=pic,
+            kept=True,
+            rare=v == 1,
+        )
+        out.append(r)
     return out
 
 
@@ -745,6 +885,7 @@ def fetch(
             )
             payload = {
                 "mmsi": r["mmsi"],
+                "imo": r.get("imo") or "",
                 "name": r["name"],
                 "typ": r["typ"],
                 "cls": r["cls"],
@@ -823,6 +964,51 @@ def fetch(
         shown = [r for r in shown if not r.get("visitor")]
         if contact and contact.get("pic"):
             base["visitor"] = contact
+    spent_mode = (
+        _choice(options.get("when_spent"), SPENT, "keep")
+        if widget == "fleet" and pictures == "paintings"
+        else "keep"
+    )
+    kept_n = 0
+    if spent_mode != "keep" and art.states.get("capped"):
+        visitors = [r for r in shown if r.get("visitor")]
+        painted_now = [
+            r
+            for r in shown
+            if not r.get("visitor")
+            and r.get("pic")
+            and r["pic"].get("kind") == "painting"
+        ]
+        gaps = [r for r in shown if r not in painted_now and not r.get("visitor")]
+        kept = from_collection(
+            art,
+            data_dir,
+            style=style,
+            exclude={
+                N.slug(str(x))
+                for r in shown
+                for x in (r.get("imo"), r.get("mmsi"), r.get("name"))
+                if x
+            },
+            n=min(len(gaps), max(0, count - len(painted_now))),
+            mode=spent_mode,
+            seed=subject_id(options),
+            labels=labels,
+            px=px,
+            panel=panel,
+            whole_=whole_,
+            deadline=fetch_started + BUDGET_S + 1.0,
+            now=now,
+        )
+        kept_n = len(kept)
+        credits.extend(r["pic"]["credit"] for r in kept if r["pic"].get("credit"))
+        shown = painted_now + kept + gaps[kept_n:] + visitors
+        if kept_n:
+            base["period"] = (
+                f"{base['period']}, and {kept_n} from the collection"
+                if painted_now
+                else "from the collection"
+            )
     if only_painted:
         shown = [
             r for r in shown if r.get("pic") and r["pic"].get("kind") == "painting"
@@ -835,6 +1021,10 @@ def fetch(
     notices, status = [], []
     if pictures == "paintings":
         status.extend(art.status())
+        if kept_n:
+            status.append(
+                f"{kept_n} {'rare ones' if spent_mode == 'rare' else 'more'} from the collection while the budget is spent"
+            )
         notices.extend(art.notes())
         if from_words:
             status.append(
