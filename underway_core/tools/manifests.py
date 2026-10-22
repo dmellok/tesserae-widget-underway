@@ -19,14 +19,14 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 TESSERAE_MIN = "0.463.0"
 
 _spec = _ilu.spec_from_file_location("_tesserae_plugins.underway_core.paint", ROOT / "underway_core" / "lib" / "paint.py")
 _paint = _ilu.module_from_spec(_spec)
 sys.modules[_spec.name] = _paint
 _spec.loader.exec_module(_paint)
-STYLES = [(k, v[0]) for k, v in _paint.STYLES.items()] + [("builder", "Build my own"), ("custom", "Your own prompt")]
+STYLES = [(k, v[0]) for k, v in _paint.STYLES.items() if k not in _paint.HIDDEN] + [("builder", "Build my own"), ("custom", "Your own prompt")]
 BUILDER = {name: (label, default, [(v, lab) for v, lab, _p in choices]) for name, (label, default, choices) in _paint.BUILDER.items()}
 PRESETS = _paint.CUSTOM_PRESETS
 BACKDROPS = [(k, v[0]) for k, v in _paint.BACKDROPS.items()]
@@ -79,7 +79,7 @@ def picture_options(with_backdrop: bool, many: bool, scene: bool = False):
         out.append(sel("backdrop", "Backdrop", "sea" if scene else "none", BACKDROPS if not scene else BACKDROPS[1:], show_if=show, help="None keeps the vessel alone on the page, cut out. The rest paint a whole picture that fills its frame, in the same style. The sea as it is now takes the time of day and the weather (Open-Meteo) at the place, and paints each condition once per vessel, so a changing sea costs more paintings."))
     out.append(sel("fidelity", "Faithfulness", "photo", [("photo", "As photographed: the same angle, every mark on the hull"), ("free", "Drawn afresh: the model's own composition, the view below")], show_if=show, help="As photographed translates the ship's photograph into the medium and keeps her angle, hull colours, funnel markings and name exactly. Drawn afresh lets the model compose her anew in the style, in the view chosen below. A vessel without a photograph is always drawn afresh, from her particulars."))
     out.append(sel("view", "View", "side", [("side", "Broadside, a little above"), ("profile", "Side-on: a pure profile, as a shipyard drawing"), ("quarter", "From the bow quarter"), ("stern", "From the stern quarter, her wake trailing")], show_if=show))
-    out.append(sel("model", "Model", "nano_banana", MODELS, show_if=show, help="All on fal.ai. Nano Banana is faithful and cheap, and keeps the more abstract styles close to the photograph; Nano Banana Pro and FLUX follow those styles further."))
+    out.append(sel("model", "Model", "nano_banana", MODELS, show_if=show, help="All on fal.ai. Nano Banana is faithful and cheap; on Nano Banana, pixel art, stained glass, low-poly, paper craft, toy bricks and pointillism are painted with GPT Image 2 (about US$0.05), as Nano Banana keeps them close to the photograph. Nano Banana Pro and FLUX follow every style further."))
     out.append({"name": "visitor", "type": "slider", "label": "Chance of a visitor", "default": 0, "min": 0, "max": 100, "step": 5, "unit": "%", "show_if": show, "help": "Each hour, this chance that something that should not be on the water joins the page, painted in the page's style, with no AIS and a made-up distance and bearing. For fun. Each visitor in a style is one painting against the daily budget."})
     out.append({"name": "visitors", "type": "multiselect", "label": "Who visits", "default": _paint.monster_choices("myth"), "show_if": {"pictures": "paintings", "visitor": {"not": 0}}, "help": "Tick the visitors the roll may bring: creatures of myth, vessels of story (described to the painter by their look, never named) and real ships of history. With nothing ticked, the creatures of myth.", "choices": [{"value": k, "label": f"{_paint.POOL_LABELS[v[2]]}: {v[0]}"} for k, v in _paint.MONSTERS.items()]})
     if many:

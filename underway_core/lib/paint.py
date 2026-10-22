@@ -307,6 +307,9 @@ STYLES: dict[str, tuple[str, str]] = {
         "a chalk drawing on a dark blackboard: white and coloured chalk, soft smudges, the lines a little dusty",
     ),
 }
+# Kept working for cells already set to them, left out of the Style picker: at panel size they
+# read as another style, or stay too close to the photograph
+HIDDEN = frozenset({"woodblock", "midcentury", "engraving_colour", "pointillism", "pencil", "papercraft"})
 STYLE_IDS = (*STYLES, "builder", "custom")
 # Styles without colour: the prompt asks for black, white and grey only
 MONO = {"engraving", "technical", "pencil", "charcoal", "scrimshaw"}
@@ -515,13 +518,26 @@ GEN = (
     "exactly as in the photograph. {page} No text or lettering beyond the ship's own, no border, no signature.{outline}"
 )
 GEN_FAITHFUL = (
-    "Render the {typ} in the reference photo, the {name}{flag}, as {style}: a faithful translation of this very "
-    "photograph into that medium. The photograph is the authority: the same ship at the same angle and attitude as "
+    "Render the {typ} in the reference photo, the {name}{flag}, as {style}: a faithful picture of this very "
+    "vessel in that medium. The photograph is the authority on the vessel: the same ship at the same angle as "
     "photographed; every element of her as she actually appears in the photograph, her hull colours, the funnel "
     "markings, the name and port of registry on the hull, the deck cargo, cranes, masts and superstructure, "
-    "reproduced exactly as they are in the photograph; only the medium changes{scene}. Where the photograph is too "
-    "small to read a mark, draw the line's actual mark rather than a guess. {page} No text or lettering beyond "
-    "the ship's own, no border, no signature.{outline}"
+    "reproduced exactly as they are in the photograph{scene}. Where the photograph is too small to read a mark, "
+    "draw the line's actual mark rather than a guess. {medium} {page} No text or lettering beyond the ship's own, "
+    "no border, no signature.{outline}"
+)
+# The photograph decides what the vessel is; the medium decides how every part of the picture is made
+MEDIUM_ONLY = (
+    "Every part of the picture is made in that medium, the vessel included: nothing photographic is left, "
+    "no photographic shading, reflections, water, sky, background or texture from the photograph, which is used "
+    "only for what the vessel is."
+)
+# A style on its own ground (a blackboard, a blueprint, a stamp): the photograph's setting goes, and the
+# medium's own ground fills the page round the vessel, her water drawn in it too
+PAGE_OWN = (
+    "Only the vessel comes from the photograph: its setting, the river bank, grass, reeds, shore, wharf, "
+    "buildings, cranes, tugs, sky and people, is left out entirely, and the medium's own ground fills the whole "
+    "picture round her, edge to edge, with open water under her hull drawn in that medium too."
 )
 GEN_WORDS = (
     "Draw {about}, the {name}{flag}{size}, as {style}: a plausible, specific, well-observed {typ} of that kind "
@@ -859,6 +875,8 @@ SIZE_CLASS = (
 
 FIDELITIES = ("photo", "free")
 PAGE_ALONE = (
+    "The whole vessel fits well inside the picture, no more than three quarters of its width, centred, with a "
+    "broad band of empty paper beyond the bow and beyond the stern and the masts all clear of the edges. "
     "The vessel alone on plain, pure white paper with a clear margin all round and nothing else on the page: no "
     "sea, sky, horizon, wake, waves, wharf, shadow or ornament round or behind her; the hull drawn down to the "
     "waterline and no further. The style says how the vessel is drawn and nothing else."
@@ -1097,9 +1115,16 @@ def prompt_for(job: dict[str, Any]) -> str:
             what=what[1],
             style=how,
             alien=UNEARTHLY if what[2] == "myth" else "",
-            page=PAGE_ALONE.replace("The vessel", "The subject")
+            page=PAGE_ALONE.replace(
+                "a broad band of empty paper beyond the bow and beyond the stern and the masts all clear",
+                "every part of it clear",
+            )
+            .replace("The whole vessel", "The whole subject")
+            .replace("The vessel", "The subject")
             .replace("the vessel", "the subject")
-            .replace("her", "its")
+            .replace(" her ", " its ")
+            .replace(" her,", " its,")
+            .replace(" her.", " its.")
             .replace(
                 "the hull drawn down to the waterline and no further",
                 "drawn down to the waterline and no further",
@@ -1154,15 +1179,20 @@ def prompt_for(job: dict[str, Any]) -> str:
             scene=scene.replace(", across ", ", set across ")
             if scene and str(job.get("backdrop")) != "ornate"
             else scene,
-            page=PAGE_ALONE if alone else PAGE_WHOLE,
+            medium=MEDIUM_ONLY,
+            page=PAGE_ALONE
+            if alone
+            else PAGE_OWN
+            if str(job.get("backdrop") or "none") == "none"
+            else PAGE_WHOLE,
             outline=OUTLINE if alone else "",
         )
         if style in MONO:
             text = text.replace(
                 "her hull colours, the funnel markings", "the funnel markings"
             ).replace(
-                "only the medium changes",
-                "only the medium changes, rendered without any colour: black, white and grey only",
+                "which is used only for what the vessel is.",
+                "which is used only for what the vessel is. Rendered without any colour: black, white and grey only.",
             )
         return text
     text = GEN.format(
@@ -1182,6 +1212,24 @@ def prompt_for(job: dict[str, Any]) -> str:
 
 def model_of(model: str | None) -> str:
     return model if model in MODELS else DEFAULT_MODEL
+
+
+# Styles that build the vessel out of something (pixels, glass, facets, card, bricks): Nano Banana keeps
+# them close to the photograph, GPT Image 2 makes them, so a cell left on Nano Banana paints these with it
+STYLE_MODEL: dict[str, str] = {
+    "pixel": "gpt_image",
+    "stained_glass": "gpt_image",
+    "lowpoly": "gpt_image",
+    "papercraft": "gpt_image",
+    "toybrick": "gpt_image",
+    "pointillism": "gpt_image",
+}
+
+
+def model_for(style: str, model: str) -> str:
+    """The model a painting in ``style`` is made with: the cell's own, or for a
+    style Nano Banana cannot make, GPT Image 2 in its place."""
+    return STYLE_MODEL.get(style, model) if model == DEFAULT_MODEL else model
 
 
 # ----------------------------------------------------------------------

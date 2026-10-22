@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Plate",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "One vessel near you as a plate: painted from her own photograph in a style of your choosing, in a ruled frame, with her particulars beside her; or one of four modern looks in the colours of her trade. Her photograph until the painting lands, or without a fal.ai key.",
@@ -210,12 +210,6 @@
           "image_large": "/plugins/underway_core/static/styles/large/poster.jpg"
         },
         {
-          "value": "engraving_colour",
-          "label": "Hand-coloured engraving",
-          "image": "/plugins/underway_core/static/styles/engraving_colour.jpg",
-          "image_large": "/plugins/underway_core/static/styles/large/engraving_colour.jpg"
-        },
-        {
           "value": "engraving",
           "label": "Black-ink engraving",
           "image": "/plugins/underway_core/static/styles/engraving.jpg",
@@ -234,12 +228,6 @@
           "image_large": "/plugins/underway_core/static/styles/large/watercolour.jpg"
         },
         {
-          "value": "woodblock",
-          "label": "Japanese woodblock print",
-          "image": "/plugins/underway_core/static/styles/woodblock.jpg",
-          "image_large": "/plugins/underway_core/static/styles/large/woodblock.jpg"
-        },
-        {
           "value": "linocut",
           "label": "Linocut",
           "image": "/plugins/underway_core/static/styles/linocut.jpg",
@@ -250,24 +238,6 @@
           "label": "Art Deco liner poster",
           "image": "/plugins/underway_core/static/styles/deco.jpg",
           "image_large": "/plugins/underway_core/static/styles/large/deco.jpg"
-        },
-        {
-          "value": "midcentury",
-          "label": "Mid-century flat illustration",
-          "image": "/plugins/underway_core/static/styles/midcentury.jpg",
-          "image_large": "/plugins/underway_core/static/styles/large/midcentury.jpg"
-        },
-        {
-          "value": "pencil",
-          "label": "Pencil study",
-          "image": "/plugins/underway_core/static/styles/pencil.jpg",
-          "image_large": "/plugins/underway_core/static/styles/large/pencil.jpg"
-        },
-        {
-          "value": "pointillism",
-          "label": "Pointillism",
-          "image": "/plugins/underway_core/static/styles/pointillism.jpg",
-          "image_large": "/plugins/underway_core/static/styles/large/pointillism.jpg"
         },
         {
           "value": "blueprint",
@@ -310,12 +280,6 @@
           "label": "Low-poly render",
           "image": "/plugins/underway_core/static/styles/lowpoly.jpg",
           "image_large": "/plugins/underway_core/static/styles/large/lowpoly.jpg"
-        },
-        {
-          "value": "papercraft",
-          "label": "Paper craft",
-          "image": "/plugins/underway_core/static/styles/papercraft.jpg",
-          "image_large": "/plugins/underway_core/static/styles/large/papercraft.jpg"
         },
         {
           "value": "toybrick",
@@ -817,7 +781,7 @@
       "show_if": {
         "pictures": "paintings"
       },
-      "help": "All on fal.ai. Nano Banana is faithful and cheap, and keeps the more abstract styles close to the photograph; Nano Banana Pro and FLUX follow those styles further."
+      "help": "All on fal.ai. Nano Banana is faithful and cheap; on Nano Banana, pixel art, stained glass, low-poly, paper craft, toy bricks and pointillism are painted with GPT Image 2 (about US$0.05), as Nano Banana keeps them close to the photograph. Nano Banana Pro and FLUX follow every style further."
     },
     {
       "name": "visitor",

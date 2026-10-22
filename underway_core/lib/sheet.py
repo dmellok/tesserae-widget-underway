@@ -581,6 +581,9 @@ def fetch(
     elif style not in P.STYLES:
         style = "poster"
     model = P.model_of(str(options.get("model") or P.DEFAULT_MODEL))
+    # the painting is keyed by the cell's model, so one kept before a style moved to another
+    # model still shows; a new one is made with the model the style needs
+    paint_model = P.model_for(style, model)
     backdrop = _choice(options.get("backdrop"), tuple(P.BACKDROPS))
     if widget == "fleet":
         backdrop = "none"
@@ -855,7 +858,7 @@ def fetch(
                 "style": style,
                 "how": how,
                 "backdrop": "none",
-                "model": model,
+                "model": paint_model,
                 "aspect": "4:3",
             }
             got = art.request(key, payload, title=f"{r['typ']}, {P.style_of(style)[0]}")
@@ -906,7 +909,7 @@ def fetch(
                 "sea_words": sea_words,
                 "view": view,
                 "fidelity": fidelity,
-                "model": model,
+                "model": paint_model,
                 "photo": photo.get("src") or "",
                 "by": photo.get("by") or "",
                 "lic": photo.get("lic") or "",

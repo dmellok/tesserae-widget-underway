@@ -147,7 +147,7 @@ def main() -> int:
         print("no fal.ai key: --key-file or FAL_KEY", file=sys.stderr)
         return 2
     P = _paint_module()
-    styles = [s for s in P.STYLES if not a.only or s in a.only.split(",")]
+    styles = [s for s in P.STYLES if s not in P.HIDDEN and (not a.only or s in a.only.split(","))]
     todo = [s for s in styles if a.force or not (OUT / f"{s}.jpg").exists()]
     ref = fal.data_uri(_reference())
     OUT.mkdir(parents=True, exist_ok=True)
@@ -155,6 +155,7 @@ def main() -> int:
     client = fal.FalClient(key)
 
     def one(style: str) -> str:
+        model = P.model_for(style, P.DEFAULT_MODEL)
         # shaped as the fleet page's painting payload (lib/sheet.py): her photograph, no backdrop
         job = {
             "mmsi": REFERENCE["mmsi"],
@@ -179,7 +180,7 @@ def main() -> int:
             "sea_words": "",
             "view": "side",
             "fidelity": "photo",
-            "model": P.DEFAULT_MODEL,
+            "model": model,
             "photo": ref,
             "by": REFERENCE["by"],
             "lic": REFERENCE["lic"],
@@ -188,7 +189,7 @@ def main() -> int:
         }
         try:
             raw = client.generate(
-                P.DEFAULT_MODEL, P.prompt_for(job), refs=[ref], aspect="4:3", retries=1
+                model, P.prompt_for(job), refs=[ref], aspect="4:3", retries=1
             )
         except Exception as exc:  # noqa: BLE001 - one style failing leaves the rest
             return f"{style}: failed ({exc})"

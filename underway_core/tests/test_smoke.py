@@ -450,7 +450,7 @@ def test_manifests_and_client_files():
     ):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
         assert (
-            m["version"] == "0.5.0"
+            m["version"] == "0.6.0"
             and m["tesserae_compat"] == "1.x"
             and m["tesserae_min"] == "0.463.0"
         )
@@ -1560,6 +1560,29 @@ def test_only_vessels_with_a_photograph_are_painted(tmp_path, offline, stream):
         "photographed first and painted; the rest silhouettes"
     )
     assert len(prompts) == 2
+
+
+def test_a_style_nano_banana_cannot_make_paints_with_gpt_image(
+    tmp_path, offline, stream
+):
+    prompts, _uas = offline
+    style = next(iter(P.STYLE_MODEL))
+    opts = {
+        **PORT_MELBOURNE,
+        "pictures": "paintings",
+        "style": style,
+        "count": "4",
+        "paint": "photo",
+    }
+    fleet.fetch(opts, SETTINGS, ctx=_ctx(tmp_path))
+    _settle()
+    assert prompts and all("gpt-image" in p["_url"] for p in prompts), [
+        p["_url"] for p in prompts
+    ]
+    # keyed by the cell's own model, so a painting kept from before still shows
+    keys = [f.stem for f in P.gen_dir(tmp_path).glob("*.jpg")]
+    assert any(k == f"9458054--{style}--p{P.PROMPT_VERSION}" for k in keys), keys
+    assert not any("m_gpt_image" in k for k in keys)
 
 
 def test_the_catalogue_counts_passes(tmp_path, offline):
