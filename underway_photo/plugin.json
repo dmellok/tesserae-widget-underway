@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Photo",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "The nearest vessel to a place, right now, as a full-bleed photograph of the very ship (Wikimedia Commons) with her name, type, flag, destination, speed and distance, and the next few along a strip. Positions from aisstream.io or a receiver of your own.",
@@ -97,10 +97,46 @@
       ]
     },
     {
+      "name": "strip",
+      "type": "number",
+      "label": "How many along the strip",
+      "default": 5,
+      "help": "0 to 8 after the nearest."
+    },
+    {
+      "name": "paper",
+      "type": "select",
+      "label": "Paper",
+      "default": "cream",
+      "choices": [
+        {
+          "value": "cream",
+          "label": "Cream"
+        },
+        {
+          "value": "white",
+          "label": "White"
+        },
+        {
+          "value": "aged",
+          "label": "Aged"
+        },
+        {
+          "value": "blueprint",
+          "label": "Blueprint: pale ink on blue"
+        },
+        {
+          "value": "sea",
+          "label": "A soft sea wash"
+        }
+      ]
+    },
+    {
       "name": "include_moored",
       "type": "boolean",
       "label": "Include vessels moored or at anchor",
-      "default": true
+      "default": true,
+      "advanced": true
     },
     {
       "name": "order",
@@ -124,7 +160,8 @@
           "value": "moving",
           "label": "Under way first"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "period",
@@ -141,19 +178,13 @@
           "label": "Everything that passed since the last render"
         }
       ],
-      "help": "Since the last render keeps a watch on the place between renders (the stream every twenty seconds, a receiver every thirty) and shows every vessel seen since the page was last drawn for a panel, each at her closest approach with the time, so a page drawn every hour is the hour's traffic rather than one moment of it. The order and the count apply to what was seen. The editor's previews show the same window without moving it on; the watch stops three hours after a page last asked, and a first render shows the last hour."
-    },
-    {
-      "name": "strip",
-      "type": "number",
-      "label": "More vessels along the strip",
-      "default": 5,
-      "help": "0 to 8 after the nearest."
+      "help": "Since the last render keeps a watch on the place between renders (the stream every twenty seconds, a receiver every thirty) and shows every vessel seen since the page was last drawn for a panel, each at her closest approach with the time, so a page drawn every hour is the hour's traffic rather than one moment of it. The order and the count apply to what was seen. The editor's previews show the same window without moving it on; the watch stops three hours after a page last asked, and a first render shows the last hour.",
+      "advanced": true
     },
     {
       "name": "photo_fit",
       "type": "select",
-      "label": "Photograph",
+      "label": "Photograph fit",
       "default": "cover",
       "choices": [
         {
@@ -164,7 +195,8 @@
           "value": "contain",
           "label": "Fits inside the page"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "labels",
@@ -218,14 +250,16 @@
           "value": "seen",
           "label": "When she was within reach"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "title",
       "type": "string",
       "label": "Title",
       "default": "",
-      "help": "Blank uses the place."
+      "help": "Blank uses the place.",
+      "advanced": true
     },
     {
       "name": "header",
@@ -245,7 +279,8 @@
           "value": "hidden",
           "label": "Hidden"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "footer",
@@ -265,35 +300,8 @@
           "value": "hide",
           "label": "Nothing"
         }
-      ]
-    },
-    {
-      "name": "paper",
-      "type": "select",
-      "label": "Paper",
-      "default": "cream",
-      "choices": [
-        {
-          "value": "cream",
-          "label": "Cream"
-        },
-        {
-          "value": "white",
-          "label": "White"
-        },
-        {
-          "value": "aged",
-          "label": "Aged"
-        },
-        {
-          "value": "blueprint",
-          "label": "Blueprint: pale ink on blue"
-        },
-        {
-          "value": "sea",
-          "label": "A soft sea wash"
-        }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "panel",
@@ -318,7 +326,8 @@
           "label": "Black and white"
         }
       ],
-      "help": "What the panel can show. Pictures are converted and contrast-stretched to match."
+      "help": "What the panel can show. Pictures are converted and contrast-stretched to match.",
+      "advanced": true
     },
     {
       "name": "text_size",
@@ -346,12 +355,13 @@
           "value": "150",
           "label": "150%"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "font",
       "type": "select",
-      "label": "Type",
+      "label": "Typeface",
       "default": "fell",
       "choices": [
         {
@@ -371,7 +381,8 @@
           "label": "The dashboard's own font"
         }
       ],
-      "help": "The face the page is set in. The dashboard's own font follows the page's font picker."
+      "help": "The face the page is set in. The dashboard's own font follows the page's font picker.",
+      "advanced": true
     }
   ],
   "data_schema": {

@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Plate",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "One vessel near you as a plate: painted from her own photograph in a style of your choosing, in a ruled frame, with her particulars beside her; or one of four modern looks in the colours of her trade. Her photograph until the painting lands, or without a fal.ai key.",
@@ -97,53 +97,6 @@
       ]
     },
     {
-      "name": "include_moored",
-      "type": "boolean",
-      "label": "Include vessels moored or at anchor",
-      "default": true
-    },
-    {
-      "name": "order",
-      "type": "select",
-      "label": "Order",
-      "default": "nearest",
-      "choices": [
-        {
-          "value": "nearest",
-          "label": "Nearest first"
-        },
-        {
-          "value": "largest",
-          "label": "Largest first"
-        },
-        {
-          "value": "fastest",
-          "label": "Fastest first"
-        },
-        {
-          "value": "moving",
-          "label": "Under way first"
-        }
-      ]
-    },
-    {
-      "name": "period",
-      "type": "select",
-      "label": "Show",
-      "default": "now",
-      "choices": [
-        {
-          "value": "now",
-          "label": "What is within reach now"
-        },
-        {
-          "value": "since",
-          "label": "Everything that passed since the last render"
-        }
-      ],
-      "help": "Since the last render keeps a watch on the place between renders (the stream every twenty seconds, a receiver every thirty) and shows every vessel seen since the page was last drawn for a panel, each at her closest approach with the time, so a page drawn every hour is the hour's traffic rather than one moment of it. The order and the count apply to what was seen. The editor's previews show the same window without moving it on; the watch stops three hours after a page last asked, and a first render shows the last hour."
-    },
-    {
       "name": "pictures",
       "type": "select",
       "label": "Pictures",
@@ -159,43 +112,6 @@
         }
       ],
       "help": "Photographs cost nothing and need no key: Wikimedia Commons by IMO number, then Openverse (which indexes the openly licensed pictures on Flickr, Commons and others) by IMO number and by name. AI paintings paint each ship once, from her photograph where there is one and from her type, size, flag, livery and your fleet notes where there is not, in the style below, at about US$0.04 a painting; needs a fal.ai key."
-    },
-    {
-      "name": "paint",
-      "type": "select",
-      "label": "Paint",
-      "default": "all",
-      "choices": [
-        {
-          "value": "all",
-          "label": "Every vessel: from her photograph, or from her particulars where there is none"
-        },
-        {
-          "value": "photo",
-          "label": "Only vessels with a photograph: the rest are left unpainted"
-        }
-      ],
-      "show_if": {
-        "pictures": "paintings"
-      },
-      "help": "A vessel no photograph can be found for is otherwise painted from what AIS says of her and your fleet notes, and marked an impression. Only vessels with a photograph asks for no such painting: she shows as the setting below says for a vessel not yet painted, and nothing is spent on her."
-    },
-    {
-      "name": "ranking",
-      "type": "select",
-      "label": "Which vessels",
-      "default": "photos",
-      "choices": [
-        {
-          "value": "photos",
-          "label": "Photographed first: within the order above, those with a photograph lead"
-        },
-        {
-          "value": "order",
-          "label": "The order above alone"
-        }
-      ],
-      "help": "Photographed first looks twice as deep as the page shows and brings the vessels with a photograph to the front, so the page is not silhouettes and impressions while a photographed ship sits just beyond the count."
     },
     {
       "name": "style",
@@ -705,6 +621,155 @@
       "help": "None keeps the vessel alone on the page, cut out. The rest paint a whole picture that fills its frame, in the same style. The sea as it is now takes the time of day and the weather (Open-Meteo) at the place, and paints each condition once per vessel, so a changing sea costs more paintings."
     },
     {
+      "name": "look",
+      "type": "select",
+      "label": "Look",
+      "default": "plate",
+      "choices": [
+        {
+          "value": "plate",
+          "label": "The plate: a ruled frame, the particulars beside it"
+        },
+        {
+          "value": "pass",
+          "label": "Boarding pass: the picture, a panel of particulars"
+        },
+        {
+          "value": "tiles",
+          "label": "Tiles: a bar, the picture, a tile for each figure"
+        },
+        {
+          "value": "poster",
+          "label": "Poster: the picture full-bleed, the particulars over it"
+        },
+        {
+          "value": "split",
+          "label": "Split: the picture framed on a dark page"
+        }
+      ],
+      "help": "The plate is set in the page's type and paper. The other four are modern, in a plain sans, and take the colours below."
+    },
+    {
+      "name": "paper",
+      "type": "select",
+      "label": "Paper",
+      "default": "cream",
+      "choices": [
+        {
+          "value": "cream",
+          "label": "Cream"
+        },
+        {
+          "value": "white",
+          "label": "White"
+        },
+        {
+          "value": "aged",
+          "label": "Aged"
+        },
+        {
+          "value": "blueprint",
+          "label": "Blueprint: pale ink on blue"
+        },
+        {
+          "value": "sea",
+          "label": "A soft sea wash"
+        }
+      ],
+      "show_if": {
+        "look": "plate"
+      }
+    },
+    {
+      "name": "include_moored",
+      "type": "boolean",
+      "label": "Include vessels moored or at anchor",
+      "default": true,
+      "advanced": true
+    },
+    {
+      "name": "order",
+      "type": "select",
+      "label": "Order",
+      "default": "nearest",
+      "choices": [
+        {
+          "value": "nearest",
+          "label": "Nearest first"
+        },
+        {
+          "value": "largest",
+          "label": "Largest first"
+        },
+        {
+          "value": "fastest",
+          "label": "Fastest first"
+        },
+        {
+          "value": "moving",
+          "label": "Under way first"
+        }
+      ],
+      "advanced": true
+    },
+    {
+      "name": "period",
+      "type": "select",
+      "label": "Show",
+      "default": "now",
+      "choices": [
+        {
+          "value": "now",
+          "label": "What is within reach now"
+        },
+        {
+          "value": "since",
+          "label": "Everything that passed since the last render"
+        }
+      ],
+      "help": "Since the last render keeps a watch on the place between renders (the stream every twenty seconds, a receiver every thirty) and shows every vessel seen since the page was last drawn for a panel, each at her closest approach with the time, so a page drawn every hour is the hour's traffic rather than one moment of it. The order and the count apply to what was seen. The editor's previews show the same window without moving it on; the watch stops three hours after a page last asked, and a first render shows the last hour.",
+      "advanced": true
+    },
+    {
+      "name": "ranking",
+      "type": "select",
+      "label": "Which vessels",
+      "default": "photos",
+      "choices": [
+        {
+          "value": "photos",
+          "label": "Photographed first: within the order above, those with a photograph lead"
+        },
+        {
+          "value": "order",
+          "label": "The order above alone"
+        }
+      ],
+      "help": "Photographed first looks twice as deep as the page shows and brings the vessels with a photograph to the front, so the page is not silhouettes and impressions while a photographed ship sits just beyond the count.",
+      "advanced": true
+    },
+    {
+      "name": "paint",
+      "type": "select",
+      "label": "Paint",
+      "default": "all",
+      "choices": [
+        {
+          "value": "all",
+          "label": "Every vessel: from her photograph, or from her particulars where there is none"
+        },
+        {
+          "value": "photo",
+          "label": "Only vessels with a photograph: the rest are left unpainted"
+        }
+      ],
+      "show_if": {
+        "pictures": "paintings"
+      },
+      "help": "A vessel no photograph can be found for is otherwise painted from what AIS says of her and your fleet notes, and marked an impression. Only vessels with a photograph asks for no such painting: she shows as the setting below says for a vessel not yet painted, and nothing is spent on her.",
+      "advanced": true
+    },
+    {
       "name": "fidelity",
       "type": "select",
       "label": "Faithfulness",
@@ -722,7 +787,8 @@
       "show_if": {
         "pictures": "paintings"
       },
-      "help": "As photographed translates the ship's photograph into the medium and keeps her angle, hull colours, funnel markings and name exactly. Drawn afresh lets the model compose her anew in the style, in the view chosen below. A vessel without a photograph is always drawn afresh, from her particulars."
+      "help": "As photographed translates the ship's photograph into the medium and keeps her angle, hull colours, funnel markings and name exactly. Drawn afresh lets the model compose her anew in the style, in the view chosen below. A vessel without a photograph is always drawn afresh, from her particulars.",
+      "advanced": true
     },
     {
       "name": "view",
@@ -749,7 +815,8 @@
       ],
       "show_if": {
         "pictures": "paintings"
-      }
+      },
+      "advanced": true
     },
     {
       "name": "model",
@@ -781,7 +848,8 @@
       "show_if": {
         "pictures": "paintings"
       },
-      "help": "All on fal.ai. Nano Banana is faithful and cheap; on Nano Banana, pixel art, stained glass, low-poly, paper craft, toy bricks and pointillism are painted with GPT Image 2 (about US$0.05), as Nano Banana keeps them close to the photograph. Nano Banana Pro and FLUX follow every style further."
+      "help": "All on fal.ai. Nano Banana is faithful and cheap; on Nano Banana, pixel art, stained glass, low-poly, paper craft, toy bricks and pointillism are painted with GPT Image 2 (about US$0.05), as Nano Banana keeps them close to the photograph. Nano Banana Pro and FLUX follow every style further.",
+      "advanced": true
     },
     {
       "name": "visitor",
@@ -795,7 +863,8 @@
       "show_if": {
         "pictures": "paintings"
       },
-      "help": "Each hour, this chance that something that should not be on the water joins the page, painted in the page's style, with no AIS and a made-up distance and bearing. For fun. Each visitor in a style is one painting against the daily budget."
+      "help": "Each hour, this chance that something that should not be on the water joins the page, painted in the page's style, with no AIS and a made-up distance and bearing. For fun. Each visitor in a style is one painting against the daily budget.",
+      "advanced": true
     },
     {
       "name": "visitors",
@@ -896,7 +965,8 @@
           "value": "galleon",
           "label": "Real: Spanish galleon"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "unpainted",
@@ -920,7 +990,26 @@
       "show_if": {
         "pictures": "paintings"
       },
-      "help": "Only a painted vessel looks among the nearest six for one already painted and keeps painting them, so the page has one most of the time; it says so until the first lands."
+      "help": "Only a painted vessel looks among the nearest six for one already painted and keeps painting them, so the page has one most of the time; it says so until the first lands.",
+      "advanced": true
+    },
+    {
+      "name": "colours",
+      "type": "select",
+      "label": "Colours",
+      "default": "type",
+      "choices": [
+        {
+          "value": "type",
+          "label": "Her trade's: deep blue for cargo, oxblood for tankers, green for fishing"
+        },
+        {
+          "value": "paper",
+          "label": "A neutral dark palette"
+        }
+      ],
+      "help": "The modern looks colour the page by the vessel's trade; cargo, tanker, passenger, tug, fishing, sail, pleasure, service and naval each have a palette.",
+      "advanced": true
     },
     {
       "name": "labels",
@@ -973,14 +1062,16 @@
           "value": "seen",
           "label": "When she was within reach"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "title",
       "type": "string",
       "label": "Title",
       "default": "",
-      "help": "Blank uses the place."
+      "help": "Blank uses the place.",
+      "advanced": true
     },
     {
       "name": "header",
@@ -1000,7 +1091,8 @@
           "value": "hidden",
           "label": "Hidden"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "footer",
@@ -1020,35 +1112,8 @@
           "value": "hide",
           "label": "Nothing"
         }
-      ]
-    },
-    {
-      "name": "paper",
-      "type": "select",
-      "label": "Paper",
-      "default": "cream",
-      "choices": [
-        {
-          "value": "cream",
-          "label": "Cream"
-        },
-        {
-          "value": "white",
-          "label": "White"
-        },
-        {
-          "value": "aged",
-          "label": "Aged"
-        },
-        {
-          "value": "blueprint",
-          "label": "Blueprint: pale ink on blue"
-        },
-        {
-          "value": "sea",
-          "label": "A soft sea wash"
-        }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "panel",
@@ -1073,7 +1138,8 @@
           "label": "Black and white"
         }
       ],
-      "help": "What the panel can show. Pictures are converted and contrast-stretched to match."
+      "help": "What the panel can show. Pictures are converted and contrast-stretched to match.",
+      "advanced": true
     },
     {
       "name": "text_size",
@@ -1101,12 +1167,13 @@
           "value": "150",
           "label": "150%"
         }
-      ]
+      ],
+      "advanced": true
     },
     {
       "name": "font",
       "type": "select",
-      "label": "Type",
+      "label": "Typeface",
       "default": "fell",
       "choices": [
         {
@@ -1126,53 +1193,8 @@
           "label": "The dashboard's own font"
         }
       ],
-      "help": "The face the page is set in. The dashboard's own font follows the page's font picker."
-    },
-    {
-      "name": "look",
-      "type": "select",
-      "label": "Look",
-      "default": "plate",
-      "choices": [
-        {
-          "value": "plate",
-          "label": "The plate: a ruled frame, the particulars beside it"
-        },
-        {
-          "value": "pass",
-          "label": "Boarding pass: the picture, a panel of particulars"
-        },
-        {
-          "value": "tiles",
-          "label": "Tiles: a bar, the picture, a tile for each figure"
-        },
-        {
-          "value": "poster",
-          "label": "Poster: the picture full-bleed, the particulars over it"
-        },
-        {
-          "value": "split",
-          "label": "Split: the picture framed on a dark page"
-        }
-      ],
-      "help": "The plate is set in the page's type and paper. The other four are modern, in a plain sans, and take the colours below."
-    },
-    {
-      "name": "colours",
-      "type": "select",
-      "label": "Colours",
-      "default": "type",
-      "choices": [
-        {
-          "value": "type",
-          "label": "Her trade's: deep blue for cargo, oxblood for tankers, green for fishing"
-        },
-        {
-          "value": "paper",
-          "label": "A neutral dark palette"
-        }
-      ],
-      "help": "The modern looks colour the page by the vessel's trade; cargo, tanker, passenger, tug, fishing, sail, pleasure, service and naval each have a palette."
+      "help": "The face the page is set in. The dashboard's own font follows the page's font picker.",
+      "advanced": true
     }
   ],
   "data_schema": {
