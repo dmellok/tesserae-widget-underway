@@ -13,7 +13,7 @@ import random
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, wait
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -710,11 +710,17 @@ def fetch(
     shown = pool
     if not shown:
         if warming:
+            # The page is wrong the moment the stream has had a report cycle,
+            # so ask the server to render again then: a panel that woke to a
+            # cold listener gets the ships on its next wake, not next cadence.
             return {
                 **base,
                 "state": "listening",
                 "live_refresh_s": LISTEN_S,
-                "hint": "Listening to aisstream.io for the vessels near you; the first show within a minute.",
+                "next_change_at": (
+                    now + timedelta(seconds=A.LISTEN_WARM_S + 15)
+                ).isoformat(),
+                "hint": "Listening to aisstream.io for the vessels near you; the first show within a few minutes.",
             }
         return {
             **base,

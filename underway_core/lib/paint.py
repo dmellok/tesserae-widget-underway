@@ -309,7 +309,16 @@ STYLES: dict[str, tuple[str, str]] = {
 }
 # Kept working for cells already set to them, left out of the Style picker: at panel size they
 # read as another style, or stay too close to the photograph
-HIDDEN = frozenset({"woodblock", "midcentury", "engraving_colour", "pointillism", "pencil", "papercraft"})
+HIDDEN = frozenset(
+    {
+        "woodblock",
+        "midcentury",
+        "engraving_colour",
+        "pointillism",
+        "pencil",
+        "papercraft",
+    }
+)
 STYLE_IDS = (*STYLES, "builder", "custom")
 # Styles without colour: the prompt asks for black, white and grey only
 MONO = {"engraving", "technical", "pencil", "charcoal", "scrimshaw"}

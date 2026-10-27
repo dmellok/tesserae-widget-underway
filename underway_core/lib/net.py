@@ -20,7 +20,9 @@ from pathlib import Path
 from typing import Any
 
 HERE = Path(__file__).resolve().parent
-USER_AGENT = "tesserae-underway/0.1 (+https://github.com/dmellok/tesserae-widget-underway)"
+USER_AGENT = (
+    "tesserae-underway/0.1 (+https://github.com/dmellok/tesserae-widget-underway)"
+)
 HTTP_TIMEOUT_S = 6  # a widget has six seconds in all; no one call may take them
 IMG_MAX_BYTES = 12_000_000
 

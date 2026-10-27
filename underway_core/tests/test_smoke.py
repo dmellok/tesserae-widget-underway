@@ -451,7 +451,7 @@ def test_manifests_and_client_files():
     ):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
         assert (
-            m["version"] == "0.6.1"
+            m["version"] == "0.6.2"
             and m["tesserae_compat"] == "1.x"
             and m["tesserae_min"] == "0.463.0"
         )
@@ -992,6 +992,12 @@ def test_the_stream_warms_then_fills(tmp_path, offline, monkeypatch):
         and r["live_refresh_s"] == S.LISTEN_S
         and "Listening" in r["hint"]
     )
+    # A cold listener asks the server to render again once a report cycle
+    # has passed, so a panel does not sit on "listening" for its whole cadence.
+    from datetime import datetime
+
+    retry = datetime.fromisoformat(r["next_change_at"]).timestamp()
+    assert 0 < retry - datetime.now().astimezone().timestamp() <= A.LISTEN_WARM_S + 15
     empty = FakeListener(records=[], warming=False)
     monkeypatch.setattr(A, "listener_for", lambda key, box, data_dir, ua: empty)
     r = fleet.fetch(
@@ -1824,3 +1830,27 @@ def test_a_spent_budget_fills_the_fleet_from_the_collection(tmp_path, offline):
         not any(v.get("kept") for v in r["vessels"])
         and r["period"] == "on the water now"
     )
+
+
+def test_listener_outlives_a_slow_panel(tmp_path, monkeypatch):
+    """A panel waking every half hour used to find the stream gone (20 min
+    idle) and start a cold one every time, so a quiet port never showed a
+    ship. The idle limit now stretches to twice the longest gap between asks."""
+    monkeypatch.setattr(A.Listener, "_run", lambda self: None)
+    lst = A.Listener("key", [[0, 0], [1, 1]], tmp_path / "l.json", "ua")
+    assert lst.idle_limit_s == A.LISTEN_IDLE_S
+    t = [1_000_000.0]
+    monkeypatch.setattr(A.time, "time", lambda: t[0])
+    lst.asked = t[0]
+    t[0] += 1800
+    lst.ask()
+    assert lst.gap == 1800 and lst.idle_limit_s == 3600
+    t[0] += 60
+    lst.ask()
+    assert lst.gap == 1800
+    lst._save()
+    again = A.Listener("key", [[0, 0], [1, 1]], tmp_path / "l.json", "ua")
+    assert again.gap == 1800 and again.idle_limit_s == 3600
+    t[0] += 10 * 86400
+    lst.ask()
+    assert lst.idle_limit_s == A.LISTEN_IDLE_MAX_S

@@ -58,11 +58,15 @@ STALE_S = 30 * 60  # a vessel not heard for this long has gone
 STATIC_S = 30 * 86400  # what a vessel said of itself is kept this long
 PHOTO_S = 30 * 86400
 WEATHER_S = 15 * 60
-LISTEN_IDLE_S = 20 * 60  # a listener no page has asked for stops after this
+LISTEN_IDLE_S = 20 * 60  # a listener no page has asked for stops after this...
+LISTEN_IDLE_MAX_S = (
+    6 * 3600
+)  # ...or after twice the longest gap between asks, up to this
 LISTEN_SAVE_S = 10
-LISTEN_WARM_S = (
-    25  # a fresh listener is given this long before an empty sea counts as empty
-)
+# A fresh listener is given this long before an empty sea counts as empty. A
+# ship at anchor reports its position every three minutes, so a quiet port
+# needs a whole report cycle before silence means anything.
+LISTEN_WARM_S = 4 * 60
 KM_NM = 1.852
 
 
@@ -791,12 +795,18 @@ class Listener:
         self.lock = threading.Lock()
         self.started = time.time()
         self.asked = time.time()
+        # The longest gap between two asks for this place. A panel that
+        # wakes every half hour would otherwise outlive the listener every
+        # time and start a cold one that has heard nothing when it renders.
+        self.gap = 0.0
         self.heard = 0
         self.error = ""
         self.connected = False
         self.stop = threading.Event()
         self._dirty = False
         got = N.read_json(path, None)
+        if isinstance(got, dict):
+            self.gap = min(_num(got.get("gap")), LISTEN_IDLE_MAX_S)
         if isinstance(got, dict) and isinstance(got.get("vessels"), dict):
             cutoff = time.time() - STATIC_S
             self.vessels = {
@@ -811,8 +821,24 @@ class Listener:
 
     # -- what a fetch reads -------------------------------------------------
 
+    def ask(self) -> None:
+        """A page asked for this place: note the time, and the gap since the last ask."""
+        now = time.time()
+        gap = now - self.asked
+        # A listener assembled without __init__ (the tests do) has no gap yet.
+        if gap > getattr(self, "gap", 0.0):
+            self.gap = min(gap, LISTEN_IDLE_MAX_S)
+            self._dirty = True
+        self.asked = now
+
+    @property
+    def idle_limit_s(self) -> float:
+        """How long without an ask before the stream is dropped: the baseline, or
+        twice the longest gap seen, so a slow-waking panel keeps it open."""
+        return min(LISTEN_IDLE_MAX_S, max(LISTEN_IDLE_S, 2 * getattr(self, "gap", 0.0)))
+
     def snapshot(self) -> list[dict[str, Any]]:
-        self.asked = time.time()
+        self.ask()
         cutoff = time.time() - STALE_S
         with self.lock:
             return [
@@ -830,7 +856,7 @@ class Listener:
     def _run(self) -> None:
         backoff = 2.0
         while not self.stop.is_set():
-            if time.time() - self.asked > LISTEN_IDLE_S:
+            if time.time() - self.asked > self.idle_limit_s:
                 break
             try:
                 self._session()
@@ -879,7 +905,7 @@ class Listener:
             self.error = ""
             last_save = time.time()
             while not self.stop.is_set():
-                if time.time() - self.asked > LISTEN_IDLE_S:
+                if time.time() - self.asked > self.idle_limit_s:
                     return
                 try:
                     msg = sock.recv()
@@ -992,7 +1018,14 @@ class Listener:
             self._dirty = False
         N.write(
             self.path,
-            json.dumps({"at": time.time(), "box": self.box, "vessels": keep}).encode(),
+            json.dumps(
+                {
+                    "at": time.time(),
+                    "box": self.box,
+                    "gap": round(getattr(self, "gap", 0.0)),
+                    "vessels": keep,
+                }
+            ).encode(),
         )
 
 
@@ -1018,7 +1051,7 @@ def listener_for(key: str, box: list[list[float]], data_dir: Path, ua: str) -> L
         if got is None or not got.thread.is_alive():
             got = Listener(key, box, data_dir / "live" / f"aisstream_{lid}.json", ua)
             _LISTENERS[lid] = got
-        got.asked = time.time()
+        got.ask()
         return got
 
 
