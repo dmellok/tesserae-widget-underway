@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 TESSERAE_MIN = "0.463.0"
 
 _spec = _ilu.spec_from_file_location(
