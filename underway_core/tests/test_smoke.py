@@ -50,6 +50,8 @@ W = S.W
 WS = A.WS
 
 PORT_MELBOURNE = {
+    # The fixtures fake the aisstream listener; Open Waters is the default now.
+    "source": "aisstream",
     "latitude": -37.84,
     "longitude": 144.92,
     "location": {"label": "Port Melbourne", "timezone": "Australia/Melbourne"},
@@ -451,7 +453,7 @@ def test_manifests_and_client_files():
     ):
         m = json.loads((ROOT / wid / "plugin.json").read_text(encoding="utf-8"))
         assert (
-            m["version"] == "0.6.2"
+            m["version"] == "0.7.0"
             and m["tesserae_compat"] == "1.x"
             and m["tesserae_min"] == "0.463.0"
         )
@@ -492,6 +494,9 @@ PAINTING_ADVANCED = [
     "visitors",
     "unpainted",
 ]
+
+
+DEFAULT_MOVED = {"source"}  # 0.7.0: Open Waters AIS became the default
 
 
 def test_options_panel_is_short_and_keeps_saved_cells():
@@ -542,15 +547,16 @@ def test_options_panel_is_short_and_keeps_saved_cells():
         assert set(old) == set(by), wid
         for name, o in old.items():
             n = by[name]
-            assert (
-                n["type"],
-                n.get("default"),
-                [c["value"] for c in n.get("choices", [])],
-            ) == (
-                o["type"],
-                o.get("default"),
-                [c["value"] for c in o.get("choices", [])],
-            ), (wid, name)
+            # A saved cell keeps its meaning when the type is the same and every
+            # value it could hold is still offered. A choice may be added, and a
+            # default may move only where a release did so on purpose: 0.7.0 made
+            # Open Waters, which needs no key, the source.
+            assert n["type"] == o["type"], (wid, name)
+            old_values = [c["value"] for c in o.get("choices", [])]
+            new_values = [c["value"] for c in n.get("choices", [])]
+            assert set(old_values) <= set(new_values), (wid, name)
+            if name not in DEFAULT_MOVED:
+                assert n.get("default") == o.get("default"), (wid, name)
     fl = {
         o["name"]: o
         for o in json.loads(
@@ -1854,3 +1860,110 @@ def test_listener_outlives_a_slow_panel(tmp_path, monkeypatch):
     t[0] += 10 * 86400
     lst.ask()
     assert lst.idle_limit_s == A.LISTEN_IDLE_MAX_S
+
+
+_OW = {
+    "type": "FeatureCollection",
+    "attribution": {"aishub": "Open Waters AIS. AISHub"},
+    "features": [
+        {
+            "type": "Feature",
+            "id": 563209400,
+            "geometry": {"type": "Point", "coordinates": [138.2852, -34.8154]},
+            "properties": {
+                "mmsi": 563209400,
+                "name": "FIRANDO",
+                "callsign": "9V7827",
+                "imo": 9965772,
+                "type": 70,
+                "sog": 0,
+                "cog": 130.5,
+                "heading": 20,
+                "nav_status": 1,
+                "destination": "AU ADL",
+                "eta": "10-27 15:30",
+                "draught": 7,
+                "length": 229,
+                "beam": 32,
+                "flag": "SG",
+                "seen": "2026-10-28T00:44:50Z",
+                "source": "aishub",
+            },
+        },
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [138.50, -34.80]},
+            "properties": {
+                "mmsi": 503144550,
+                "name": "MALUKA",
+                "type": 36,
+                "sog": 0,
+                "to_bow": 6,
+                "to_stern": 5,
+                "to_port": 3,
+                "to_starboard": 0,
+                "flag": "AU",
+                "source": "aisstream",
+            },
+        },
+        {"type": "Feature", "geometry": None, "properties": {"mmsi": 1}},
+    ],
+}
+
+
+def test_openwaters_rows_take_the_feature_shape():
+    rows = A._openwaters_rows(_OW)
+    assert [r["mmsi"] for r in rows] == ["563209400", "503144550"]
+    f = rows[0]
+    assert f["lat"] == -34.8154 and f["lon"] == 138.2852
+    assert (
+        f["len"] == 229
+        and f["beam"] == 32
+        and f["cc"] == "SG"
+        and f["imo"] == "9965772"
+    )
+    assert f["status"] == 1 and f["dest"] == "AU ADL" and f["eta"]
+    assert abs(f["at"] - 1793148290.0) < 1
+    assert rows[1]["len"] == 11 and rows[1]["beam"] == 3
+    assert A.openwaters_feed(rows) == "Open Waters AIS (aishub, aisstream)"
+
+
+def test_nearby_openwaters_asks_once_per_render_and_keeps_the_last_answer(
+    tmp_path, monkeypatch
+):
+    calls = []
+
+    def fake_get_json(url, ua="", timeout=0, **kw):
+        calls.append(url)
+        return (_OW, None) if len(calls) == 1 else (None, "unreachable")
+
+    monkeypatch.setattr(A.N, "get_json", fake_get_json)
+    rows, err, feed, warming = A.nearby(
+        "openwaters", "", "", -34.93, 138.59, 40, tmp_path, "ua"
+    )
+    assert err is None and not warming and feed.startswith("Open Waters AIS")
+    assert [r["name"] for r in rows] == ["Maluka", "Firando"]
+    assert "bbox=" in calls[0] and "max_age=30m" in calls[0]
+    # A second render inside LIVE_S reads the cache; after that the stale answer
+    # stands in when the service is down.
+    rows2, *_ = A.nearby("openwaters", "", "", -34.93, 138.59, 40, tmp_path, "ua")
+    assert len(calls) == 1 and len(rows2) == 2
+    monkeypatch.setattr(A, "LIVE_S", 0)
+    rows3, err3, *_ = A.nearby("openwaters", "", "", -34.93, 138.59, 40, tmp_path, "ua")
+    assert len(calls) == 2 and err3 is None and len(rows3) == 2
+    # Nothing cached and the service down: an error, not an empty sea.
+    rows4, err4, *_ = A.nearby("openwaters", "", "", -20.0, 150.0, 40, tmp_path, "ua")
+    assert rows4 == [] and "Open Waters AIS could not be reached" in err4
+
+
+def test_openwaters_is_the_default_source_and_the_manifest_offers_it():
+    m = json.loads(
+        (ROOT / "underway_fleet" / "plugin.json").read_text(encoding="utf-8")
+    )
+    src = next(o for o in m["cell_options"] if o["name"] == "source")
+    assert src["default"] == "openwaters"
+    assert [c["value"] for c in src["choices"]] == [
+        "openwaters",
+        "aisstream",
+        "receiver",
+    ]

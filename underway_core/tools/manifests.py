@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-VERSION = "0.6.2"
+VERSION = "0.7.0"
 TESSERAE_MIN = "0.463.0"
 
 _spec = _ilu.spec_from_file_location(
@@ -86,8 +86,12 @@ def where_options():
         sel(
             "source",
             "Positions from",
-            "aisstream",
+            "openwaters",
             [
+                (
+                    "openwaters",
+                    "Open Waters AIS (no key; AISHub, aisstream.io, government feeds and volunteer receivers)",
+                ),
                 (
                     "aisstream",
                     "aisstream.io (a free key, in the Underway Core settings)",

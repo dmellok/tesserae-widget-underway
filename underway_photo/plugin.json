@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Photo",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "The nearest vessel to a place, right now, as a full-bleed photograph of the very ship (Wikimedia Commons) with her name, type, flag, destination, speed and distance, and the next few along a strip. Positions from aisstream.io or a receiver of your own.",
@@ -30,8 +30,12 @@
       "name": "source",
       "type": "select",
       "label": "Positions from",
-      "default": "aisstream",
+      "default": "openwaters",
       "choices": [
+        {
+          "value": "openwaters",
+          "label": "Open Waters AIS (no key; AISHub, aisstream.io, government feeds and volunteer receivers)"
+        },
         {
           "value": "aisstream",
           "label": "aisstream.io (a free key, in the Underway Core settings)"

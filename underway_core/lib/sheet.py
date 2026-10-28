@@ -46,7 +46,7 @@ SIGHT_NAME = lambda r: " · ".join(
 )
 
 WIDGETS = ("photo", "plate", "fleet", "scene")
-SOURCES = ("aisstream", "receiver")
+SOURCES = ("openwaters", "aisstream", "receiver")
 RADII = ("5", "10", "15", "25", "35", "50", "80")
 ORDERS = ("nearest", "largest", "fastest", "moving")
 PICTURES = ("photos", "paintings")
@@ -68,6 +68,9 @@ PERIODS = ("now", "since")
 PAINTS = ("all", "photo")
 WATCH_STREAM_S = 20  # the stream is in memory: a look every so often costs nothing
 WATCH_RECEIVER_S = 30
+WATCH_OPENWATERS_S = (
+    60  # a shared, rate-limited service: ask it no more than once a minute
+)
 UNPAINTED = ("silhouette", "photo", "skip")
 # the fleet, when the day's budget is spent: the vessels that could not be painted give way to
 # paintings already kept, chosen at random or the rarest seen first
@@ -336,7 +339,9 @@ def watched(
     w = W.watch_for(
         key,
         poll,
-        WATCH_RECEIVER_S if source == "receiver" else WATCH_STREAM_S,
+        {"receiver": WATCH_RECEIVER_S, "openwaters": WATCH_OPENWATERS_S}.get(
+            source, WATCH_STREAM_S
+        ),
         data_dir,
         lambda r: str(r.get("mmsi") or ""),
     )
@@ -1087,9 +1092,9 @@ def fetch(
         credits=list(dict.fromkeys(credits))[:4],
         afloat=afloat,
         moving=len(moving),
-        attribution=f"positions from {feed or 'aisstream.io'}"
-        if source == "aisstream"
-        else "positions from your receiver",
+        attribution="positions from your receiver"
+        if source == "receiver"
+        else f"positions from {feed or ('aisstream.io' if source == 'aisstream' else 'Open Waters AIS')}",
         **live,
     )
     logger.info(

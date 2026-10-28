@@ -51,6 +51,10 @@ except ImportError:  # an older Tesserae: the copy below
     commons = None  # type: ignore[assignment]
 
 AISSTREAM = "wss://stream.aisstream.io/v0/stream"
+# Open Waters AIS (https://openwaters.io/ais/): a keyless snapshot of the vessels
+# in a box, heard within the last half hour, from AISHub, aisstream.io, government
+# feeds and volunteer receivers. A request per render, so no listener to keep alive.
+OPENWATERS = "https://ais.openwaters.io/v1/vessels?bbox={s:.4f},{w:.4f},{n:.4f},{e:.4f}&max_age=30m"
 COMMONS = "https://commons.wikimedia.org/w/api.php"
 OPEN_METEO = "https://api.open-meteo.com/v1/forecast?latitude={lat:.3f}&longitude={lon:.3f}&current=weather_code,cloud_cover,is_day,wind_speed_10m&daily=sunrise,sunset&timezone=auto&forecast_days=1"
 LIVE_S = 15  # a receiver is asked at most this often
@@ -1103,6 +1107,77 @@ def _receiver_rows(data: Any) -> list[dict[str, Any]]:
 
 
 # ----------------------------------------------------------------------
+# Open Waters AIS: a GeoJSON snapshot of the box
+# ----------------------------------------------------------------------
+def _seen_at(text: Any, now: float) -> float:
+    """The unix time of an ISO ``seen`` stamp; ``now`` when it is missing or odd."""
+    if not isinstance(text, str) or not text.strip():
+        return now
+    try:
+        return datetime.fromisoformat(text.strip().replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return now
+
+
+def _openwaters_rows(data: Any) -> list[dict[str, Any]]:
+    """The vessels of an Open Waters ``/v1/vessels`` FeatureCollection, in the
+    shape the aisstream listener and a receiver give."""
+    feats = data.get("features") if isinstance(data, dict) else None
+    out: list[dict[str, Any]] = []
+    now = time.time()
+    for f in feats if isinstance(feats, list) else []:
+        if not isinstance(f, dict):
+            continue
+        pr = f.get("properties") or {}
+        geo = f.get("geometry") or {}
+        coords = geo.get("coordinates") if isinstance(geo, dict) else None
+        if (
+            not isinstance(pr, dict)
+            or not pr.get("mmsi")
+            or not isinstance(coords, list)
+        ):
+            continue
+        if len(coords) < 2 or not all(isinstance(c, (int, float)) for c in coords[:2]):
+            continue
+        eta = ""
+        m = re.fullmatch(r"(\d{2})-(\d{2}) (\d{2}):(\d{2})", str(pr.get("eta") or ""))
+        if m:
+            eta = eta_text(*m.groups())
+        out.append(
+            {
+                "mmsi": str(pr.get("mmsi")),
+                "name": str(pr.get("name") or "").strip("@ "),
+                "cs": pr.get("callsign") or "",
+                "imo": str(pr.get("imo") or ""),
+                "type": pr.get("type"),
+                "lat": float(coords[1]),
+                "lon": float(coords[0]),
+                "sog": pr.get("sog"),
+                "cog": pr.get("cog"),
+                "hdg": pr.get("heading"),
+                "status": pr.get("nav_status"),
+                "dest": pr.get("destination") or "",
+                "eta": eta,
+                "draught": pr.get("draught"),
+                "len": _num(pr.get("length"))
+                or _num(pr.get("to_bow")) + _num(pr.get("to_stern")),
+                "beam": _num(pr.get("beam"))
+                or _num(pr.get("to_port")) + _num(pr.get("to_starboard")),
+                "cc": pr.get("flag") or "",
+                "at": _seen_at(pr.get("seen"), now),
+                "via": pr.get("source") or "",
+            }
+        )
+    return out
+
+
+def openwaters_feed(records: list[dict[str, Any]]) -> str:
+    """The attribution Open Waters asks for: itself and the sources it relayed."""
+    via = sorted({str(r.get("via") or "") for r in records} - {""})
+    return "Open Waters AIS" + (f" ({', '.join(via)})" if via else "")
+
+
+# ----------------------------------------------------------------------
 # The vessels near a place
 # ----------------------------------------------------------------------
 def nearby(
@@ -1151,12 +1226,35 @@ def nearby(
         records = _receiver_rows(data)
         feed = "your receiver"
         warming = False
+    elif source == "openwaters":
+        box = bbox_of(lat, lon, radius_km)
+        url = OPENWATERS.format(s=box[0][0], w=box[0][1], n=box[1][0], e=box[1][1])
+        cache = data_dir / "live" / ("openwaters_" + N.slug(url) + ".json")
+        got = N.read_json(cache, None)
+        if isinstance(got, dict) and now - _num(got.get("at")) < LIVE_S:
+            data = got.get("data")
+        else:
+            data, err = N.get_json(url, ua=ua, timeout=8)
+            if data is None:
+                if isinstance(got, dict):
+                    data = got.get("data")
+                else:
+                    why = {
+                        "unreachable": "could not be reached",
+                        "auth": "refused the request",
+                    }.get(err or "", err or "gave no answer")
+                    return [], f"Open Waters AIS {why}.", "", False
+            else:
+                N.write(cache, json.dumps({"at": now, "data": data}).encode())
+        records = _openwaters_rows(data)
+        feed = openwaters_feed(records)
+        warming = False
     else:
         key = str(api_key or "").strip()
         if not key:
             return (
                 [],
-                "Give an aisstream.io key in the Underway Core settings (free at aisstream.io), or point the cell at a receiver of your own.",
+                "Give an aisstream.io key in the Underway Core settings (free at aisstream.io), point the cell at a receiver of your own, or choose Open Waters AIS, which needs no key.",
                 "",
                 False,
             )

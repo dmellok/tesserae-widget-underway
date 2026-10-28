@@ -1,7 +1,7 @@
 {
   "tesserae_compat": "1.x",
   "name": "Underway: Plate",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "kind": "widget",
   "tesserae_min": "0.463.0",
   "description": "One vessel near you as a plate: painted from her own photograph in a style of your choosing, in a ruled frame, with her particulars beside her; or one of four modern looks in the colours of her trade. Her photograph until the painting lands, or without a fal.ai key.",
@@ -30,8 +30,12 @@
       "name": "source",
       "type": "select",
       "label": "Positions from",
-      "default": "aisstream",
+      "default": "openwaters",
       "choices": [
+        {
+          "value": "openwaters",
+          "label": "Open Waters AIS (no key; AISHub, aisstream.io, government feeds and volunteer receivers)"
+        },
         {
           "value": "aisstream",
           "label": "aisstream.io (a free key, in the Underway Core settings)"
